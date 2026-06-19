@@ -42,6 +42,8 @@
   .c-tool_result{border-left-color:var(--blue)}
   .c-tool_result.fail{border-left-color:var(--red)}
   .c-orchestrator_decision{border-left-color:var(--cyan)}
+  .c-handoff{border-left-color:var(--magenta);padding:5px 10px}
+  .c-handoff .body{color:var(--magenta);font-weight:600}
   .c-state_transition{border-left-color:var(--gray)}
   .c-final_answer{border-left-color:var(--green);background:#0f2417}
   .c-error{border-left-color:var(--red);background:#2d0f0f}
@@ -272,6 +274,14 @@ function handle(ev){
       card("orchestrator_decision",`→ ${p.next_node} · iter ${ev.iteration}`,
         `<span class="lbl">reason:</span> ${esc(p.reason)}`);
       break;
+    case "handoff": {
+      const other = p.from==="orchestrator" ? p.to : p.from;
+      flowEdge("edge-orch-"+nodeKey(other));
+      if(p.to!=="orchestrator" && p.to!=="__end__") activate("mnode-"+p.to);
+      card("handoff",`flusso · iter ${ev.iteration}`,
+        `${esc(p.from)} → ${esc(p.to)}${p.note?` · ${esc(p.note)}`:""}`);
+      break;
+    }
     case "state_transition":
       renderState(p.after, p.diff);
       const keys=Object.keys(p.diff||{});

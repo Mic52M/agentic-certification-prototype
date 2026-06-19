@@ -48,6 +48,8 @@ def build_orchestrator_node(logger: TraceLogger):
         snapshot_keys = [k for k, v in state.model_dump().items()
                          if v not in (None, [], "", False)]
         logger.orchestrator_decision(iteration, next_node, reason, snapshot_keys)
+        # The actual control transfer (orchestrator -> chosen node).
+        logger.handoff("orchestrator", str(next_node), iteration, "instradamento")
         return {"next_node": next_node, "iteration": iteration}
 
     return orchestrator_node

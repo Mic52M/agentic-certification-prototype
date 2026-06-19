@@ -46,6 +46,25 @@ salvato in `./traces/{timestamp}_{config}_{taskhash}.jsonl`.
 Ticket di esempio: `T-001`..`T-007`. Articoli KB: `KB-001`..`KB-008`
 (vedi `data/`).
 
+## Manuale dei comandi
+
+```bash
+python manual.py        # elenco di tutti i comandi del prototipo
+```
+
+## Esperimento — N run sullo stesso task (non-determinismo)
+
+```bash
+python experiment.py --config multi_agent --ticket T-004 --runs 20
+python experiment.py --config single_agent --task "..." --runs 10 --delay 1.5
+```
+
+Lancia lo stesso task N volte e quantifica il non-determinismo: tabella per-run
+(KB cercata? quali articoli, iterazioni, token, lunghezza traiettoria) + aggregato
+(percentuali, statistiche, distribuzione delle traiettorie e degli articoli KB).
+Salva un riepilogo JSON in `./experiments/`. Flag: `--runs N` (default 10),
+`--ticket ID` oppure `--task "..."`, `--delay sec` (default 1.0, per il rate limit).
+
 ## Web UI — live view (vedere gli agenti lavorare in tempo reale)
 
 Oltre al terminale, c'è un'interfaccia web locale che mostra **in tempo reale**

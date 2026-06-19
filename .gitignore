@@ -12,5 +12,8 @@ venv/
 # Traces are runtime output; keep the dir but not the JSONL files.
 traces/*.jsonl
 
+# Experiment summaries are runtime output.
+experiments/*.json
+
 # OS
 .DS_Store

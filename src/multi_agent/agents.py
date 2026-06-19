@@ -44,6 +44,8 @@ def build_specialist_nodes(llm: LLMClient, logger: TraceLogger) -> dict:
         }
         logger.state_transition("intent_classifier", state.iteration,
                                 before, {**before, **updates})
+        logger.handoff("intent_classifier", "orchestrator", state.iteration,
+                       "controllo restituito")
         return updates
 
     def retriever_node(state: MultiAgentState) -> dict:
@@ -92,6 +94,8 @@ def build_specialist_nodes(llm: LLMClient, logger: TraceLogger) -> dict:
         }
         logger.state_transition("retriever", state.iteration,
                                 before, {**before, **updates})
+        logger.handoff("retriever", "orchestrator", state.iteration,
+                       "controllo restituito")
         return updates
 
     def responder_node(state: MultiAgentState) -> dict:
@@ -125,6 +129,8 @@ def build_specialist_nodes(llm: LLMClient, logger: TraceLogger) -> dict:
                                 before, {**before, **updates})
         logger.final_answer("responder", state.iteration, answer,
                             state.iteration, before["total_tokens"] + resp.total_tokens)
+        logger.handoff("responder", "orchestrator", state.iteration,
+                       "controllo restituito")
         return updates
 
     return {

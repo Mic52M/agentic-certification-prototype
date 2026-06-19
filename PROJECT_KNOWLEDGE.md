@@ -77,6 +77,9 @@ Schema evento:
 - `tool_call` — { tool_name, args }.
 - `tool_result` — { tool_name, result, success }.
 - `orchestrator_decision` (solo multi) — { next_node, reason, state_snapshot_keys }.
+- `handoff` (solo multi) — { from, to, note }. Passaggio esplicito di controllo
+  (`orchestrator → X` e `X → orchestrator`); rende il flusso continuo e ispezionabile,
+  e alimenta l'animazione degli archi nella web UI.
 - `state_transition` (solo multi) — { before, after, diff }.
 - `final_answer` — { answer, iterations_used, total_tokens }.
 
@@ -123,6 +126,17 @@ lo stream di eventi.
   di verità, due sink (file + browser). Non altera in alcun modo gli agenti.
 - Avvio: `python -m webapp.server` → http://127.0.0.1:8000. Dipendenze pinnate:
   fastapi 0.137.2, uvicorn 0.49.0.
+
+## 5c. Esperimenti N-run + manuale
+
+- `experiment.py`: esegue lo stesso task N volte e misura il **non-determinismo**
+  (anche a temp=0 gli LLM serviti via API non sono bit-riproducibili). Per ogni run
+  estrae dagli eventi: se ha cercato in KB, quali articoli ha recuperato, n. tool call,
+  agent step, iterazioni, token, traiettoria. Stampa tabella per-run + aggregato (con
+  distribuzioni e statistiche) e salva un JSON in `./experiments/`. Motivazione di
+  ricerca: una proprietà non si certifica su una singola run, serve una distribuzione.
+  CLI: `--config`, `--runs` (def 10), `--ticket ID | --task "..."`, `--delay` (def 1.0).
+- `manual.py`: stampa un riferimento di tutti i comandi (`python manual.py`).
 
 ## 6. Cosa NON è (ancora) implementato e perché
 - **Config "agente replicato in parallelo"** (3ª del paper): in pausa. Il prototipo

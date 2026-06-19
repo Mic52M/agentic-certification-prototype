@@ -33,6 +33,7 @@ EVENT_TYPES = (
     "tool_call",
     "tool_result",
     "orchestrator_decision",
+    "handoff",
     "state_transition",
     "final_answer",
 )
@@ -152,6 +153,19 @@ class TraceLogger:
                           ("reason: ", "bold white"), (reason, "white")),
             title=f"[cyan]orchestrator_decision[/cyan] · iter {iteration}",
             border_style="cyan", expand=True))
+
+    def handoff(self, from_node: str, to_node: str, iteration: int,
+                note: str = "") -> None:
+        """Explicit transfer of control between two nodes (multi-agent).
+
+        Makes the flow continuous and precise: every "orchestrator -> X" and
+        "X -> orchestrator" hop is its own event, drawn live on the graph edge.
+        """
+        self._write("handoff", from_node, iteration,
+                    {"from": from_node, "to": to_node, "note": note})
+        self.console.print(
+            f"  [dim]⇄ handoff[/dim] [bold]{from_node}[/bold] → "
+            f"[bold]{to_node}[/bold]" + (f"  [dim]{note}[/dim]" if note else ""))
 
     def state_transition(self, node_name: str, iteration: int,
                          before: dict[str, Any], after: dict[str, Any]) -> None:
