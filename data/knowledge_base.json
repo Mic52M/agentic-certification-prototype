@@ -1,0 +1,50 @@
+[
+  {
+    "id": "KB-001",
+    "titolo": "Reimpostare la password della casella aziendale",
+    "tag": ["password", "login", "autenticazione", "accesso"],
+    "contenuto": "Se non riesci ad accedere alla casella, vai su https://mail.acme-corp.local/reset, inserisci l'indirizzo aziendale e segui il link ricevuto. Il link scade dopo 30 minuti. Dopo 5 tentativi falliti l'account viene bloccato per 15 minuti per motivi di sicurezza."
+  },
+  {
+    "id": "KB-002",
+    "titolo": "Account bloccato dopo troppi tentativi di accesso",
+    "tag": ["account", "blocco", "login", "sicurezza"],
+    "contenuto": "Un account viene bloccato automaticamente dopo 5 tentativi di login errati. Il blocco dura 15 minuti. Per sbloccarlo subito, l'amministratore IT puo' usare la console admin alla voce Utenti > Sblocca. In alternativa attendere la scadenza del blocco."
+  },
+  {
+    "id": "KB-003",
+    "titolo": "Email in uscita rimaste in coda (errore SMTP 421)",
+    "tag": ["smtp", "invio", "coda", "errore", "421"],
+    "contenuto": "L'errore SMTP 421 indica che il server di posta sta rifiutando temporaneamente le connessioni, di solito per superamento del rate limit (max 100 messaggi/minuto per utente). Le email restano in coda e vengono ritentate automaticamente ogni 5 minuti. Per invii massivi usare la funzione Mailing Liste."
+  },
+  {
+    "id": "KB-004",
+    "titolo": "Configurazione client IMAP/SMTP",
+    "tag": ["imap", "smtp", "configurazione", "client", "porte"],
+    "contenuto": "Parametri client: IMAP imap.acme-corp.local porta 993 (SSL/TLS); SMTP smtp.acme-corp.local porta 587 (STARTTLS). Usare l'indirizzo email completo come username. Se la connessione fallisce verificare che la porta 587 non sia bloccata dal firewall aziendale."
+  },
+  {
+    "id": "KB-005",
+    "titolo": "Email legittime finiscono nella cartella Spam",
+    "tag": ["spam", "filtro", "quarantena", "falso positivo"],
+    "contenuto": "Il filtro antispam puo' classificare erroneamente mittenti interni o partner. Per risolvere: aggiungere il mittente alla allowlist in Impostazioni > Antispam > Mittenti consentiti. La quarantena conserva i messaggi per 14 giorni prima dell'eliminazione."
+  },
+  {
+    "id": "KB-006",
+    "titolo": "Casella piena: impossibile ricevere nuove email",
+    "tag": ["quota", "spazio", "archiviazione", "ricezione"],
+    "contenuto": "La quota standard per casella e' 5 GB. Al raggiungimento del 100% la ricezione viene sospesa e i mittenti ricevono un bounce. Liberare spazio svuotando il Cestino e la cartella Elementi inviati, oppure richiedere un aumento quota all'IT (massimo 25 GB)."
+  },
+  {
+    "id": "KB-007",
+    "titolo": "Sincronizzazione calendario non funzionante",
+    "tag": ["calendario", "caldav", "sincronizzazione", "mobile"],
+    "contenuto": "Per sincronizzare il calendario usare CalDAV: https://cal.acme-corp.local/dav porta 443. Su dispositivi mobili rimuovere e riconfigurare l'account se gli eventi non si aggiornano. La sincronizzazione completa puo' richiedere fino a 10 minuti."
+  },
+  {
+    "id": "KB-008",
+    "titolo": "Autenticazione a due fattori (2FA) non riceve il codice",
+    "tag": ["2fa", "mfa", "codice", "sicurezza", "sms"],
+    "contenuto": "Se il codice 2FA via SMS non arriva, verificare il numero in Profilo > Sicurezza. In alternativa usare un'app TOTP (Google Authenticator, Authy) scansionando il QR code. I codici di backup monouso sono disponibili nella stessa sezione e vanno conservati in luogo sicuro."
+  }
+]

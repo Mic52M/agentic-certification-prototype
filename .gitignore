@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.Python
+
+# Traces are runtime output; keep the dir but not the JSONL files.
+traces/*.jsonl
+
+# OS
+.DS_Store

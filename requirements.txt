@@ -1,0 +1,7 @@
+# Pinned for reproducibility — verified against PyPI on 2026-06-19.
+# LangGraph API changes frequently between minor versions; do not bump blindly.
+langgraph==1.2.6
+groq==1.4.0
+pydantic==2.13.4
+rich==14.2.0
+python-dotenv==1.0.1

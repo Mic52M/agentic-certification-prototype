@@ -1,0 +1,51 @@
+[
+  {
+    "id": "T-001",
+    "utente": "Giulia Ferrari",
+    "data": "2026-06-15",
+    "descrizione": "Da stamattina non riesco piu' ad accedere alla posta. Continua a dire che la password non e' valida, ma sono sicura sia quella giusta. Ho provato diverse volte.",
+    "messaggio_errore": "Authentication failed: account temporarily locked"
+  },
+  {
+    "id": "T-002",
+    "utente": "Marco Bianchi",
+    "data": "2026-06-16",
+    "descrizione": "Sto provando a inviare la newsletter mensile a tutta la lista clienti ma le mail restano ferme nella posta in uscita e non partono.",
+    "messaggio_errore": "SMTP error 421: too many messages, try again later"
+  },
+  {
+    "id": "T-003",
+    "utente": "Elena Russo",
+    "data": "2026-06-16",
+    "descrizione": "Ho configurato la posta sul nuovo telefono ma non riesco a connettermi. Il client dice che non riesce a contattare il server in uscita.",
+    "messaggio_errore": "Cannot connect to SMTP server on port 25"
+  },
+  {
+    "id": "T-004",
+    "utente": "Davide Conti",
+    "data": "2026-06-17",
+    "descrizione": "Le email del nostro fornitore principale finiscono sempre nello spam e rischio di perdere comunicazioni importanti. Come faccio a evitarlo?",
+    "messaggio_errore": null
+  },
+  {
+    "id": "T-005",
+    "utente": "Sara Greco",
+    "data": "2026-06-17",
+    "descrizione": "Un cliente mi ha detto che le sue email mi tornano indietro con un errore. Io pero' non vedo niente di strano nella mia casella.",
+    "messaggio_errore": "Delivery failed: recipient mailbox full"
+  },
+  {
+    "id": "T-006",
+    "utente": "Luca Moretti",
+    "data": "2026-06-18",
+    "descrizione": "Non mi arriva piu' il codice di verifica via SMS quando provo ad accedere, quindi sono bloccato fuori dall'account.",
+    "messaggio_errore": "2FA verification code not received"
+  },
+  {
+    "id": "T-007",
+    "utente": "Chiara Esposito",
+    "data": "2026-06-18",
+    "descrizione": "Gli appuntamenti che creo sul portale web non compaiono sul calendario del telefono. La posta invece funziona.",
+    "messaggio_errore": null
+  }
+]
