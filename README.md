@@ -46,6 +46,22 @@ salvato in `./traces/{timestamp}_{config}_{taskhash}.jsonl`.
 Ticket di esempio: `T-001`..`T-007`. Articoli KB: `KB-001`..`KB-008`
 (vedi `data/`).
 
+## Web UI — live view (vedere gli agenti lavorare in tempo reale)
+
+Oltre al terminale, c'è un'interfaccia web locale che mostra **in tempo reale**
+quale nodo lavora, come comunica con l'orchestratore e come muta lo stato condiviso.
+
+```bash
+python -m webapp.server        # poi apri http://127.0.0.1:8000
+```
+
+Nella pagina: scegli la configurazione e il ticket, premi **Run**. Vedrai il grafo
+con il nodo attivo evidenziato, gli archi orchestratore↔agente che si "accendono"
+a ogni routing, il pannello dello **stato condiviso** che cambia (campi mutati
+evidenziati) e lo **stream di eventi** live. È lo stesso flusso di eventi del JSONL,
+inviato al browser via Server-Sent Events — non un log separato: una sola sorgente,
+due sink. Richiede `GROQ_API_KEY` (esegue una run reale).
+
 ## Tracce JSONL
 
 Prima riga = metadati del run (code hash, versioni librerie, model, sampling,

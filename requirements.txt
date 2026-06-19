@@ -5,3 +5,7 @@ groq==1.4.0
 pydantic==2.13.4
 rich==14.2.0
 python-dotenv==1.0.1
+
+# Web UI (live view) — optional but used by `python -m webapp.server`.
+fastapi==0.137.2
+uvicorn==0.49.0

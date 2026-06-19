@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Agentic Certification Prototype — Live View</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --txt:#e6edf3; --dim:#8b949e;
+    --green:#3fb950; --blue:#58a6ff; --cyan:#39c5cf; --magenta:#bc8cff;
+    --yellow:#d29922; --red:#f85149; --gray:#6e7681;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,monospace;
+       background:var(--bg);color:var(--txt);font-size:14px}
+  header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;
+         gap:14px;align-items:center;flex-wrap:wrap;background:var(--panel)}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px}
+  header .meta{color:var(--dim);font-size:12px}
+  select,input,button{background:#0d1117;color:var(--txt);border:1px solid var(--border);
+         border-radius:6px;padding:6px 10px;font-size:13px}
+  input#task{min-width:380px}
+  button{cursor:pointer;background:#238636;border-color:#2ea043;font-weight:600}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .layout{display:grid;grid-template-columns:1.2fr .8fr;gap:0;height:calc(100vh - 58px)}
+  .left{border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+  .graphwrap{flex:0 0 auto;padding:10px}
+  .state{flex:1 1 auto;overflow:auto;padding:10px 16px;border-top:1px solid var(--border)}
+  .right{display:flex;flex-direction:column;min-width:0}
+  .feedhead,.statehead{padding:8px 16px;color:var(--dim);font-size:12px;
+         text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)}
+  #feed{flex:1;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+  .card{border:1px solid var(--border);border-left-width:3px;border-radius:6px;
+        padding:8px 10px;background:var(--panel);animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .card .t{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+        display:flex;justify-content:space-between;margin-bottom:4px}
+  .card .body{white-space:pre-wrap;word-break:break-word;line-height:1.4}
+  .card .lbl{font-weight:600}
+  .c-agent_step{border-left-color:var(--green)}
+  .c-tool_call{border-left-color:var(--blue)}
+  .c-tool_result{border-left-color:var(--blue)}
+  .c-tool_result.fail{border-left-color:var(--red)}
+  .c-orchestrator_decision{border-left-color:var(--cyan)}
+  .c-state_transition{border-left-color:var(--gray)}
+  .c-final_answer{border-left-color:var(--green);background:#0f2417}
+  .c-error{border-left-color:var(--red);background:#2d0f0f}
+  .c-run_metadata{border-left-color:var(--magenta)}
+  /* graph */
+  .node rect,.node circle{fill:var(--panel);stroke:var(--border);stroke-width:1.5;
+        transition:all .25s ease}
+  .node text{fill:var(--txt);font-size:12px;font-weight:600}
+  .node .sub{fill:var(--dim);font-size:10px;font-weight:400}
+  .node.active rect,.node.active circle{stroke:var(--green);stroke-width:3;
+        fill:#16301d;filter:drop-shadow(0 0 6px rgba(63,185,80,.6))}
+  .node.orch.active rect{stroke:var(--cyan);fill:#0e2a2c;
+        filter:drop-shadow(0 0 6px rgba(57,197,207,.6))}
+  .node.visited rect,.node.visited circle{stroke:var(--blue)}
+  .edge{fill:none;stroke:var(--border);stroke-width:1.6;marker-end:url(#arrow)}
+  .edge.flow{stroke:var(--cyan);stroke-width:2.6;marker-end:url(#arrowc);
+        filter:drop-shadow(0 0 4px rgba(57,197,207,.7))}
+  .kv{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid #21262d}
+  .kv .k{color:var(--dim);min-width:150px}
+  .kv .v{word-break:break-word}
+  .kv.changed{background:#15281c;border-radius:4px;padding:3px 6px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;
+        border:1px solid var(--border);color:var(--dim)}
+  .pill.run{color:var(--green);border-color:var(--green)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ Agentic Certification — Live View</h1>
+  <select id="config">
+    <option value="single_agent">single_agent</option>
+    <option value="multi_agent">multi_agent</option>
+  </select>
+  <select id="ticket"></select>
+  <input id="task" placeholder="task in linguaggio naturale"/>
+  <button id="run">▶ Run</button>
+  <span id="status" class="pill">idle</span>
+  <span class="meta" id="counters"></span>
+</header>
+
+<div class="layout">
+  <div class="left">
+    <div class="graphwrap">
+      <!-- SINGLE AGENT GRAPH -->
+      <svg id="g-single" viewBox="0 0 720 400" width="100%" height="270">
+        <defs>
+          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#30363d"/></marker>
+          <marker id="arrowc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#39c5cf"/></marker>
+        </defs>
+        <path class="edge" id="s-e1" d="M78,210 H160"/>
+        <path class="edge" id="s-e2" d="M290,200 C350,160 385,120 420,115"/>
+        <path class="edge" id="s-e3" d="M420,132 C360,182 330,212 292,214"/>
+        <path class="edge" id="s-e4" d="M290,224 C350,292 385,325 420,325"/>
+        <path class="edge" id="s-e5" d="M570,325 H642"/>
+        <g class="node" id="node-START"><circle cx="60" cy="210" r="18"/>
+          <text x="60" y="214" text-anchor="middle" class="sub">START</text></g>
+        <g class="node" id="snode-agent"><rect x="160" y="185" width="130" height="50" rx="8"/>
+          <text x="225" y="206" text-anchor="middle">agent</text>
+          <text x="225" y="222" text-anchor="middle" class="sub">ReAct loop</text></g>
+        <g class="node" id="snode-tool"><rect x="420" y="90" width="150" height="50" rx="8"/>
+          <text x="495" y="111" text-anchor="middle">tool</text>
+          <text x="495" y="127" text-anchor="middle" class="sub">KB / ticket</text></g>
+        <g class="node" id="snode-finalize"><rect x="420" y="300" width="150" height="50" rx="8"/>
+          <text x="495" y="321" text-anchor="middle">finalize</text>
+          <text x="495" y="337" text-anchor="middle" class="sub">final_answer</text></g>
+        <g class="node" id="snode-end"><circle cx="660" cy="325" r="18"/>
+          <text x="660" y="329" text-anchor="middle" class="sub">END</text></g>
+      </svg>
+
+      <!-- MULTI AGENT GRAPH -->
+      <svg id="g-multi" class="hidden" viewBox="0 0 760 430" width="100%" height="290">
+        <path class="edge" id="m-start" d="M86,62 C210,95 285,160 320,205"/>
+        <path class="edge" id="edge-orch-intent_classifier" d="M320,222 C270,200 235,184 222,180"/>
+        <path class="edge" id="edge-orch-retriever" d="M320,252 C262,300 232,330 222,346"/>
+        <path class="edge" id="edge-orch-responder" d="M470,222 C545,200 580,184 590,180"/>
+        <path class="edge" id="edge-orch-end" d="M470,252 C545,305 605,345 645,360"/>
+        <g class="node" id="node-mstart"><circle cx="70" cy="52" r="16"/>
+          <text x="70" y="56" text-anchor="middle" class="sub">START</text></g>
+        <g class="node" id="mnode-intent_classifier"><rect x="72" y="150" width="150" height="54" rx="8"/>
+          <text x="147" y="172" text-anchor="middle">IntentClassifier</text>
+          <text x="147" y="189" text-anchor="middle" class="sub">classifica intent</text></g>
+        <g class="node" id="mnode-retriever"><rect x="72" y="320" width="150" height="54" rx="8"/>
+          <text x="147" y="342" text-anchor="middle">Retriever</text>
+          <text x="147" y="359" text-anchor="middle" class="sub">ticket + KB</text></g>
+        <g class="node orch" id="mnode-orchestrator"><rect x="320" y="200" width="150" height="70" rx="10"/>
+          <text x="395" y="230" text-anchor="middle">Orchestrator</text>
+          <text x="395" y="248" text-anchor="middle" class="sub">routing deterministico</text></g>
+        <g class="node" id="mnode-responder"><rect x="590" y="150" width="145" height="54" rx="8"/>
+          <text x="662" y="172" text-anchor="middle">Responder</text>
+          <text x="662" y="189" text-anchor="middle" class="sub">risposta finale</text></g>
+        <g class="node" id="mnode-end"><circle cx="660" cy="360" r="16"/>
+          <text x="660" y="364" text-anchor="middle" class="sub">END</text></g>
+      </svg>
+    </div>
+    <div class="statehead">Stato condiviso / traiettoria</div>
+    <div class="state" id="state"></div>
+  </div>
+
+  <div class="right">
+    <div class="feedhead">Event stream (live)</div>
+    <div id="feed"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const cfgSel=$("#config"), ticketSel=$("#ticket"), taskIn=$("#task"),
+      runBtn=$("#run"), statusEl=$("#status"), counters=$("#counters"),
+      feed=$("#feed"), stateEl=$("#state");
+let es=null, totalTokens=0;
+
+// --- load tickets -------------------------------------------------------
+fetch("/api/tickets").then(r=>r.json()).then(ts=>{
+  for(const t of ts){
+    const o=document.createElement("option");
+    o.value=t.id; o.textContent=`${t.id} · ${t.utente}`; o.dataset.desc=t.descrizione;
+    ticketSel.appendChild(o);
+  }
+  syncTask();
+});
+ticketSel.addEventListener("change", syncTask);
+function syncTask(){
+  const id=ticketSel.value||"T-001";
+  taskIn.value=`L'utente ha aperto il ticket ${id}, capisci il problema e proponi una soluzione.`;
+}
+cfgSel.addEventListener("change", showGraph);
+function showGraph(){
+  const multi = cfgSel.value==="multi_agent";
+  $("#g-single").classList.toggle("hidden", multi);
+  $("#g-multi").classList.toggle("hidden", !multi);
+}
+showGraph();
+
+// --- graph helpers ------------------------------------------------------
+function clearActive(){
+  document.querySelectorAll(".node.active").forEach(n=>n.classList.remove("active"));
+  document.querySelectorAll(".edge.flow").forEach(e=>e.classList.remove("flow"));
+}
+function activate(id){
+  const n=$("#"+id);
+  if(!n) return;
+  clearActive(); n.classList.add("active","visited");
+}
+function flowEdge(id){
+  const e=$("#"+id); if(e){ e.classList.add("flow");
+    setTimeout(()=>e.classList.remove("flow"),1400); }
+}
+function nodeKey(name){ return name==="__end__"?"end":name; }
+
+// --- feed ---------------------------------------------------------------
+function card(type, title, bodyHtml){
+  const c=document.createElement("div");
+  c.className="card c-"+type;
+  c.innerHTML=`<div class="t"><span>${title}</span><span>${type}</span></div>`+
+              `<div class="body">${bodyHtml}</div>`;
+  feed.appendChild(c); feed.scrollTop=feed.scrollHeight;
+  return c;
+}
+const esc=s=>String(s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+const short=(o,n=400)=>{let s=typeof o==="string"?o:JSON.stringify(o);
+  return s.length>n?s.slice(0,n)+" …":s;};
+
+// --- state panel --------------------------------------------------------
+const STATE_KEYS=["current_intent","intent_rationale","task_ticket_id",
+  "retrieval_done","ticket_data","retrieved_context","agent_history",
+  "final_answer","next_node","iteration","total_tokens"];
+function renderState(after, diff){
+  stateEl.innerHTML="";
+  for(const k of STATE_KEYS){
+    if(!(k in after)) continue;
+    let v=after[k];
+    if(k==="retrieved_context"&&Array.isArray(v)) v=`${v.length} articoli: `+v.map(a=>a.id).join(", ");
+    else if(k==="ticket_data"&&v) v=`${v.id} · ${v.utente}`;
+    else if(v===null||v===undefined) v="—";
+    else if(typeof v==="object") v=short(v,160);
+    const row=document.createElement("div");
+    row.className="kv"+(diff&&k in diff?" changed":"");
+    row.innerHTML=`<span class="k">${k}</span><span class="v">${esc(v)}</span>`;
+    stateEl.appendChild(row);
+  }
+}
+function renderSingleState(o){
+  stateEl.innerHTML="";
+  for(const[k,v]of Object.entries(o)){
+    const row=document.createElement("div"); row.className="kv";
+    row.innerHTML=`<span class="k">${k}</span><span class="v">${esc(v)}</span>`;
+    stateEl.appendChild(row);
+  }
+}
+let single={iteration:0,last_action:"—",last_observation:"—",final_answer:"—"};
+
+// --- event handling -----------------------------------------------------
+function handle(ev){
+  const p=ev.payload||{};
+  const multi = ev.configuration==="multi_agent";
+  switch(ev.event_type){
+    case "run_metadata":
+      counters.textContent=`model ${p.model} · temp ${p.temperature} · langgraph ${p.langgraph_version}`;
+      card("run_metadata","run avviato",
+        `config <span class="lbl">${ev.configuration}</span> · task: ${esc(short(p.task,160))}`);
+      break;
+    case "agent_step":
+      if(multi){ activate("mnode-"+ev.node_name); flowEdge("edge-orch-"+nodeKey(ev.node_name)); }
+      else { activate("snode-agent"); single.iteration=ev.iteration;
+             single.last_action=p.action?`${p.action.tool}(${short(p.action.args,120)})`:"—";
+             renderSingleState(single); }
+      card("agent_step",`${ev.node_name} · iter ${ev.iteration}`,
+        `<span class="lbl">Thought:</span> ${esc(p.thought||"")}\n`+
+        `<span class="lbl">Action:</span> ${esc(JSON.stringify(p.action))}`);
+      break;
+    case "tool_call":
+      if(!multi) activate("snode-tool");
+      card("tool_call",`${ev.node_name}`,
+        `→ <span class="lbl">${esc(p.tool_name)}</span>(${esc(short(p.args,200))})`);
+      break;
+    case "tool_result":
+      const c=card("tool_result",`${ev.node_name} · success=${p.success}`,
+        `← ${esc(short(p.result,400))}`);
+      if(!p.success) c.classList.add("fail");
+      if(!multi){ single.last_observation=short(p.result,200); renderSingleState(single); }
+      break;
+    case "orchestrator_decision":
+      activate("mnode-orchestrator");
+      flowEdge("edge-orch-"+nodeKey(p.next_node));
+      card("orchestrator_decision",`→ ${p.next_node} · iter ${ev.iteration}`,
+        `<span class="lbl">reason:</span> ${esc(p.reason)}`);
+      break;
+    case "state_transition":
+      renderState(p.after, p.diff);
+      const keys=Object.keys(p.diff||{});
+      if(keys.length) card("state_transition",`${ev.node_name}`,
+        `campi mutati: <span class="lbl">${esc(keys.join(", "))}</span>`);
+      break;
+    case "final_answer":
+      if(multi) activate("mnode-responder"); else activate("snode-finalize");
+      totalTokens=p.total_tokens||totalTokens;
+      counters.textContent+=` · iterazioni ${p.iterations_used} · token ${p.total_tokens}`;
+      card("final_answer","FINAL ANSWER",esc(p.answer));
+      if(!multi){ single.final_answer=short(p.answer,400); renderSingleState(single); }
+      break;
+    case "error":
+      card("error","errore",esc(p.detail));
+      statusEl.textContent="error"; statusEl.className="pill";
+      break;
+  }
+}
+
+// --- run ----------------------------------------------------------------
+runBtn.addEventListener("click", ()=>{
+  if(es){ es.close(); es=null; }
+  feed.innerHTML=""; stateEl.innerHTML=""; counters.textContent="";
+  totalTokens=0; single={iteration:0,last_action:"—",last_observation:"—",final_answer:"—"};
+  document.querySelectorAll(".node").forEach(n=>n.classList.remove("active","visited"));
+  clearActive();
+  const cfg=cfgSel.value, task=taskIn.value;
+  statusEl.textContent="running"; statusEl.className="pill run"; runBtn.disabled=true;
+  es=new EventSource(`/api/run-stream?config=${cfg}&task=${encodeURIComponent(task)}`);
+  es.onmessage=e=>{ try{ handle(JSON.parse(e.data)); }catch(err){ console.error(err,e.data); } };
+  es.addEventListener("done",()=>{
+    es.close(); es=null; runBtn.disabled=false; clearActive();
+    if(statusEl.textContent!=="error"){ statusEl.textContent="done"; statusEl.className="pill"; }
+  });
+  es.onerror=()=>{ if(es){ es.close(); es=null; } runBtn.disabled=false; };
+});
+</script>
+</body>
+</html>

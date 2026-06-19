@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -58,10 +59,14 @@ def make_run_id(configuration: str, task: str) -> str:
 class TraceLogger:
     """Writes JSONL events and mirrors them to the console via rich."""
 
-    def __init__(self, run_id: str, configuration: str, console: Console) -> None:
+    def __init__(self, run_id: str, configuration: str, console: Console,
+                 event_sink: Callable[[dict[str, Any]], None] | None = None) -> None:
         self.run_id = run_id
         self.configuration = configuration
         self.console = console
+        # Optional second consumer of every event (e.g. the web UI's live
+        # stream). Same data as the JSONL — one event in, two sinks out.
+        self.event_sink = event_sink
         config.TRACES_DIR.mkdir(exist_ok=True)
         self.path = config.TRACES_DIR / f"{run_id}.jsonl"
         self._fh = self.path.open("w", encoding="utf-8")
@@ -80,6 +85,11 @@ class TraceLogger:
         }
         self._fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
         self._fh.flush()
+        if self.event_sink is not None:
+            try:
+                self.event_sink(event)
+            except Exception:  # noqa: BLE001 - the UI must never break a run
+                pass
 
     def write_metadata(self, metadata: dict[str, Any]) -> None:
         self._write("run_metadata", node_name="__run__", iteration=-1,

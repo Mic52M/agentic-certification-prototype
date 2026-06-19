@@ -105,6 +105,25 @@ python tests/smoke_test.py      # offline, NON serve la API key
 ```
 Ticket disponibili: T-001..T-007 (`data/tickets.json`). KB: KB-001..KB-008.
 
+## 5b. Web UI — live view (`webapp/`)
+
+Aggiunta su richiesta esplicita (2026-06-19), **rilassando** il vincolo originale
+"tutto da terminale". Interfaccia web locale per la demo: mostra in tempo reale
+il grafo con il nodo attivo, gli archi orchestratore↔agente che si accendono a
+ogni routing, il pannello dello stato condiviso (con campi mutati evidenziati) e
+lo stream di eventi.
+
+- `webapp/server.py`: FastAPI + uvicorn. `GET /api/run-stream` lancia una run in
+  un thread e ne fa lo streaming via **Server-Sent Events**. Un `queue.Queue`
+  fa da ponte tra il thread (bloccante) e la response async.
+- `webapp/static/index.html`: pagina singola (SVG + JS vanilla, nessun framework).
+- **Riusa esattamente lo stesso flusso di eventi del JSONL**: il `TraceLogger` ora
+  accetta un `event_sink` opzionale (callback chiamata per ogni evento, oltre alla
+  scrittura su file). Il web server passa `event_sink=queue.put`. Una sola sorgente
+  di verità, due sink (file + browser). Non altera in alcun modo gli agenti.
+- Avvio: `python -m webapp.server` → http://127.0.0.1:8000. Dipendenze pinnate:
+  fastapi 0.137.2, uvicorn 0.49.0.
+
 ## 6. Cosa NON è (ancora) implementato e perché
 - **Config "agente replicato in parallelo"** (3ª del paper): in pausa. Il prototipo
   copre le due architetture estreme (mono e multi-orchestrato); la replica parallela
