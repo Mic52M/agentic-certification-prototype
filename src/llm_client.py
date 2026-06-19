@@ -45,10 +45,15 @@ class LLMClient:
     ) -> None:
         self.model = model
         self.temperature = temperature
+        # base_url is recorded for the trace metadata. The Groq SDK already
+        # targets the OpenAI-compatible endpoint and appends "/openai/v1"
+        # itself, so we do NOT pass it through (doing so double-prefixes the
+        # path -> 404). We only override the client's base if a *custom*
+        # host (not the documented default) is configured.
         self.base_url = base_url
         # Groq() reads GROQ_API_KEY from env by default; we pass it explicitly
         # so the failure mode is a clear message instead of a vague auth error.
-        self._client = Groq(api_key=config.require_api_key(), base_url=base_url)
+        self._client = Groq(api_key=config.require_api_key())
 
     def complete(self, system_prompt: str, user_prompt: str) -> LLMResponse:
         """One system + one user message in, one parsed response out."""
