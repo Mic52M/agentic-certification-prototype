@@ -32,6 +32,7 @@ from rich.table import Table
 import run as runner
 from src import config
 from src.logging_utils import TraceLogger, make_run_id
+from src.properties import SPECS, evaluate_trace
 
 ROOT = Path(__file__).resolve().parent
 EXPERIMENTS_DIR = ROOT / "experiments"
@@ -112,12 +113,16 @@ def main() -> None:
     for i in range(1, args.runs + 1):
         console.print(f"[dim]run {i}/{args.runs} …[/dim]", end="\r")
         try:
-            m = _metrics(_one_run(args.config, task))
+            events = _one_run(args.config, task)
+            m = _metrics(events)
+            m["property_status"] = {r.spec.id: r.status.value
+                                    for r in evaluate_trace(events)}
         except Exception as exc:  # noqa: BLE001
             m = {"ok": False, "error": f"{type(exc).__name__}: {exc}",
                  "kb_searched": False, "kb_articles": [], "tool_calls": None,
                  "agent_steps": None, "iterations": None, "tokens": None,
-                 "answer_chars": 0, "agent_history": None, "tool_sequence": []}
+                 "answer_chars": 0, "agent_history": None, "tool_sequence": [],
+                 "property_status": {}}
         rows.append(m)
         if i < args.runs:
             time.sleep(args.delay)
@@ -172,6 +177,30 @@ def main() -> None:
     console.print(Panel(summary_txt, title="[bold]Aggregato (non-determinismo)",
                         border_style="cyan"))
 
+    # --- certification properties across runs ---------------------------
+    prop_fail: Counter = Counter()
+    prop_appl: Counter = Counter()   # run in cui la proprietà è applicabile (non N/A)
+    for m in ok:
+        for pid, st in m.get("property_status", {}).items():
+            if st != "na":
+                prop_appl[pid] += 1
+            if st == "fail":
+                prop_fail[pid] += 1
+    ptable = Table(title="Proprietà di certificazione (violazioni su run valutabili)",
+                   show_lines=False)
+    ptable.add_column("Proprietà", style="bold")
+    ptable.add_column("Classe")
+    ptable.add_column("FAIL / valutabili", justify="right")
+    ptable.add_column("tasso", justify="right")
+    for pid, spec in SPECS.items():
+        appl = prop_appl.get(pid, 0)
+        fail = prop_fail.get(pid, 0)
+        rate = f"{(100*fail/appl):.0f}%" if appl else "—"
+        style = "red" if fail else "green"
+        ptable.add_row(spec.name, spec.cls,
+                       f"[{style}]{fail}[/{style}] / {appl}", rate)
+    console.print(ptable)
+
     # --- save JSON summary ----------------------------------------------
     EXPERIMENTS_DIR.mkdir(exist_ok=True)
     out = EXPERIMENTS_DIR / f"{datetime.now():%Y%m%d-%H%M%S}_{args.config}.json"
@@ -181,6 +210,9 @@ def main() -> None:
         "kb_searched_count": searched, "ok_count": n_ok,
         "kb_article_distribution": dict(kb_sets),
         "trajectory_distribution": {" → ".join(t): c for t, c in trajectories.items()},
+        "property_violations": {pid: {"fail": prop_fail.get(pid, 0),
+                                      "applicable": prop_appl.get(pid, 0)}
+                                for pid in SPECS},
         "per_run": rows,
     }, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     console.print(f"[dim]Riepilogo salvato in:[/dim] {out}")

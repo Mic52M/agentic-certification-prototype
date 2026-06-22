@@ -32,8 +32,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import run as runner  # noqa: E402
-from src import tools  # noqa: E402
 from src.logging_utils import TraceLogger, make_run_id  # noqa: E402
+from src.properties import evaluate_trace  # noqa: E402
 
 app = FastAPI(title="Agentic Certification Prototype — Live View")
 STATIC = Path(__file__).resolve().parent / "static"
@@ -57,10 +57,18 @@ def list_tickets() -> list[dict]:
 
 def _run_in_thread(configuration: str, task: str, q: "queue.Queue") -> None:
     """Run one task, pushing every trace event into `q`. Console output is
-    suppressed (the browser is the surface here)."""
+    suppressed (the browser is the surface here). When the run completes we
+    evaluate the certification properties over the collected trace and push a
+    synthetic `property_report` event (not part of the JSONL, computed after)."""
     console = Console(file=open("/dev/null", "w"), force_terminal=False)
     run_id = make_run_id(configuration, task)
-    logger = TraceLogger(run_id, configuration, console, event_sink=q.put)
+    collected: list[dict] = []
+
+    def sink(event: dict) -> None:
+        collected.append(event)
+        q.put(event)
+
+    logger = TraceLogger(run_id, configuration, console, event_sink=sink)
     try:
         if configuration == "single_agent":
             runner.run_single_agent(task, logger)
@@ -74,6 +82,20 @@ def _run_in_thread(configuration: str, task: str, q: "queue.Queue") -> None:
         })
     finally:
         logger.close()
+        try:
+            results = evaluate_trace(collected)
+            q.put({
+                "event_type": "property_report", "run_id": run_id,
+                "configuration": configuration, "node_name": "__certifier__",
+                "iteration": -1,
+                "payload": {"results": [
+                    {"id": r.spec.id, "name": r.spec.name, "cls": r.spec.cls,
+                     "statement": r.spec.statement, "status": r.status.value,
+                     "detail": r.detail, "evidence": r.evidence}
+                    for r in results]},
+            })
+        except Exception:  # noqa: BLE001 - never let the report break the stream
+            pass
         q.put(_END)
 
 

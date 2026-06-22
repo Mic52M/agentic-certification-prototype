@@ -31,6 +31,12 @@ COMMANDS = [
      "Esegue una run con orchestratore deterministico + IntentClassifier/Retriever/"
      "Responder. Stessa traccia JSONL + eventi handoff e state_transition."),
 
+    ("Certificazione — verifica proprietà",
+     "python check.py --latest\n"
+     "python check.py --trace traces/<file>.jsonl",
+     "Valuta le proprietà non-funzionali su una traccia: per ognuna stampa classe, "
+     "verdetto (PASS/FAIL/N/A) ed evidenze. Exit code 1 se c'è almeno un FAIL."),
+
     ("Web UI — live view",
      "python -m webapp.server      # poi apri http://127.0.0.1:8000",
      "Interfaccia web locale: grafo con nodo attivo, archi orchestratore↔agente che "
@@ -40,7 +46,8 @@ COMMANDS = [
      "python experiment.py --config multi_agent --ticket T-004 --runs 20\n"
      "python experiment.py --config single_agent --task \"...\" --runs 10 --delay 1.5",
      "Lancia lo stesso task N volte e quantifica il non-determinismo: tabella per-run "
-     "(KB cercata? quali articoli, iterazioni, token) + aggregato. Salva in ./experiments/.\n"
+     "(KB cercata? quali articoli, iterazioni, token), tassi di violazione delle "
+     "proprietà di certificazione, e aggregato. Salva in ./experiments/.\n"
      "Flag: --runs N (default 10), --ticket ID | --task \"...\", --delay sec (default 1.0)."),
 
     ("Smoke test (offline, senza API key)",

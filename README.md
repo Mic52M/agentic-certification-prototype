@@ -64,6 +64,32 @@ Lancia lo stesso task N volte e quantifica il non-determinismo: tabella per-run
 Salva un riepilogo JSON in `./experiments/`. Flag: `--runs N` (default 10),
 `--ticket ID` oppure `--task "..."`, `--delay sec` (default 1.0, per il rate limit).
 
+## Certificazione — verifica delle proprietà
+
+Il ponte dalla traccia alla certificazione. Una *proprietà* è un predicato
+verificabile sulla traccia (non sulla qualità della risposta), seguendo il pattern
+*claim → evidence → verdict*: ogni verdetto (PASS/FAIL/N/A) porta con sé le evidenze
+estratte dagli eventi.
+
+```bash
+python check.py --latest                  # valuta l'ultima traccia
+python check.py --trace traces/<file>.jsonl
+```
+
+Proprietà verificate (in [src/properties.py](src/properties.py)):
+
+| Proprietà | Classe | Enunciato |
+|---|---|---|
+| `kb_search_performed` | Integrità di processo | almeno una `search_knowledge_base` |
+| `answer_groundedness` | Faithfulness | la risposta poggia su ≥1 articolo KB recuperato |
+| `citation_faithfulness` | Safety | ogni `KB-xxx` citato è stato davvero recuperato |
+| `bounded_termination` | Safety / liveness | termina per risposta legittima, non per cap di sicurezza |
+| `output_parseability` | Robustness | nessun output LLM malformato |
+
+Poiché gli agenti LLM sono non-deterministici, una singola valutazione non prova
+nulla: `experiment.py` aggrega i **tassi di violazione su N run**, e la web UI mostra
+il report di proprietà a fine run.
+
 ## Web UI — live view (vedere gli agenti lavorare in tempo reale)
 
 Oltre al terminale, c'è un'interfaccia web locale che mostra **in tempo reale**
@@ -79,6 +105,9 @@ a ogni routing, il pannello dello **stato condiviso** che cambia (campi mutati
 evidenziati) e lo **stream di eventi** live. È lo stesso flusso di eventi del JSONL,
 inviato al browser via Server-Sent Events — non un log separato: una sola sorgente,
 due sink. Richiede `GROQ_API_KEY` (esegue una run reale).
+
+A fine run compare in alto la **barra di certificazione**: le 5 proprietà si
+illuminano PASS/FAIL/N/A, ognuna con dettaglio ed evidenze.
 
 ## Tracce JSONL
 
