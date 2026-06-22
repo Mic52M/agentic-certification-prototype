@@ -18,5 +18,6 @@ experiments/*.json
 # OS
 .DS_Store
 
-# Local-only handover doc (not pushed).
+# Local-only handover / strategy docs (not pushed).
 PROJECT_KNOWLEDGE.md
+CERTIFICATION_MAP.md
