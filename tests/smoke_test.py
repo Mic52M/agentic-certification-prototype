@@ -116,14 +116,21 @@ def _ev(t, node="agent", it=1, **payload):
 
 
 def test_properties():
-    # Good trace: searched KB, retrieved KB-002, cited it, terminated cleanly.
+    # Good trace: searched KB, retrieved KB-002 (with content), cited it,
+    # answered using that content, terminated cleanly.
     good = [
         _ev("run_metadata", node="__run__", it=-1, max_iterations=10,
             configuration="single_agent"),
         _ev("tool_call", tool_name="search_knowledge_base", args={"query": "x"}),
-        _ev("tool_result", tool_name="search_knowledge_base",
-            result=[{"id": "KB-002"}], success=True),
-        _ev("final_answer", answer="Vedi KB-002.", iterations_used=3, total_tokens=10),
+        _ev("tool_result", tool_name="search_knowledge_base", success=True,
+            result=[{"id": "KB-002", "titolo": "Account bloccato",
+                     "tag": ["account", "blocco"],
+                     "contenuto": "Un account viene bloccato per 15 minuti dopo "
+                                  "tentativi falliti; contattare l'amministratore IT."}]),
+        _ev("final_answer",
+            answer="Account bloccato per 15 minuti dopo tentativi falliti; "
+                   "contattare amministratore IT. Vedi KB-002.",
+            iterations_used=3, total_tokens=10),
     ]
     res = {r.spec.id: r.status for r in evaluate_trace(good)}
     assert res["kb_search_performed"] == Status.PASS, res

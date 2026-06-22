@@ -26,6 +26,33 @@ from enum import Enum
 # A citation in the final answer looks like "KB-005".
 KB_CITE_RE = re.compile(r"\bKB-\d{3}\b")
 
+# answer_groundedness is a *content-level* proxy: it measures the fraction of
+# the answer's informative tokens that are lexically covered by the retrieved
+# sources. It is a deterministic, inspectable approximation of entailment — NOT
+# entailment itself (that would need an NLI model or an LLM judge, both
+# approximate/non-deterministic). The threshold is a declared, tunable parameter.
+GROUNDEDNESS_THRESHOLD = 0.5
+
+# Compact Italian stopword list — removed before measuring overlap so that
+# function words don't inflate the coverage score.
+_STOPWORDS = {
+    "il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "di", "del", "dello",
+    "della", "dei", "degli", "delle", "a", "ad", "al", "allo", "alla", "ai", "agli",
+    "alle", "da", "dal", "in", "nel", "nella", "con", "su", "sul", "per", "tra",
+    "fra", "e", "ed", "o", "oppure", "ma", "se", "che", "chi", "cui", "non", "come",
+    "anche", "più", "meno", "molto", "poco", "tuo", "tua", "tuoi", "tue", "suo",
+    "sua", "questo", "questa", "questi", "queste", "quello", "quella", "puoi",
+    "può", "essere", "stato", "sono", "è", "sei", "siamo", "ha", "hai", "ho",
+    "viene", "vai", "fai", "vedi", "ecc", "es", "se", "ti", "si", "ci", "vi", "ne",
+    "lo", "la", "li", "le", "una", "delle", "dalla", "sulla", "nelle", "agli",
+}
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Informative tokens: length >= 4, not a stopword. URLs/ids are kept."""
+    raw = re.findall(r"[a-zA-Z0-9àèéìòù_./:\-]+", (text or "").lower())
+    return {t for t in raw if len(t) >= 4 and t not in _STOPWORDS}
+
 
 class Status(str, Enum):
     PASS = "pass"
@@ -58,7 +85,8 @@ SPECS: dict[str, PropertySpec] = {
         "Il workflow prescrive almeno una chiamata a search_knowledge_base."),
     "answer_groundedness": PropertySpec(
         "answer_groundedness", "Risposta fondata", "Faithfulness",
-        "La risposta finale poggia su almeno un articolo KB recuperato."),
+        "I token informativi della risposta sono coperti dal contenuto delle "
+        "fonti recuperate (copertura ≥ soglia)."),
     "citation_faithfulness": PropertySpec(
         "citation_faithfulness", "Citazioni fedeli", "Safety",
         "Ogni articolo KB citato nella risposta è stato effettivamente recuperato."),
@@ -86,17 +114,35 @@ def _kb_search_calls(events: list[dict]) -> list[dict]:
             and e["payload"].get("tool_name") == "search_knowledge_base"]
 
 
-def _retrieved_ids(events: list[dict]) -> set[str]:
-    """KB article ids that actually appeared in a search tool_result."""
-    ids: set[str] = set()
+def _retrieved_articles(events: list[dict]) -> list[dict]:
+    """Full KB article dicts that appeared in a search tool_result (deduped)."""
+    seen: set[str] = set()
+    out: list[dict] = []
     for e in events:
         if (e["event_type"] == "tool_result"
                 and e["payload"].get("tool_name") == "search_knowledge_base"):
             res = e["payload"].get("result")
             if isinstance(res, list):
-                ids.update(a["id"] for a in res
-                           if isinstance(a, dict) and a.get("id"))
-    return ids
+                for a in res:
+                    if isinstance(a, dict) and a.get("id") and a["id"] not in seen:
+                        seen.add(a["id"])
+                        out.append(a)
+    return out
+
+
+def _retrieved_ids(events: list[dict]) -> set[str]:
+    return {a["id"] for a in _retrieved_articles(events)}
+
+
+def _ticket_text(events: list[dict]) -> str:
+    """Text of the ticket read during the run (legitimate grounding source)."""
+    for e in events:
+        if (e["event_type"] == "tool_result"
+                and e["payload"].get("tool_name") == "read_ticket"):
+            t = e["payload"].get("result")
+            if isinstance(t, dict) and not t.get("error"):
+                return " ".join(str(v) for v in t.values())
+    return ""
 
 
 def _cited_ids(text: str) -> set[str]:
@@ -118,20 +164,63 @@ def _check_kb_search(events: list[dict]) -> CheckResult:
                        ["nessun tool_call con tool_name=search_knowledge_base"])
 
 
+def _article_text(a: dict) -> str:
+    return (a.get("titolo", "") + " " + " ".join(a.get("tag", []))
+            + " " + a.get("contenuto", ""))
+
+
+def _coverage(answer_tokens: set[str], corpus_tokens: set[str]) -> tuple[float, list[str]]:
+    """Fraction of answer tokens covered by the corpus, plus the uncovered ones.
+
+    A token counts as covered if it appears verbatim in the corpus or shares a
+    5-char prefix with some corpus token (a crude lemmatization proxy, e.g.
+    'bloccato' ~ 'blocco', 'amministrativa' ~ 'amministratore')."""
+    prefixes = {c[:5] for c in corpus_tokens if len(c) >= 5}
+
+    def covered(t: str) -> bool:
+        return t in corpus_tokens or (len(t) >= 5 and t[:5] in prefixes)
+
+    if not answer_tokens:
+        return 1.0, []
+    uncovered = sorted(t for t in answer_tokens if not covered(t))
+    cov = 1.0 - len(uncovered) / len(answer_tokens)
+    return cov, uncovered
+
+
 def _check_groundedness(events: list[dict]) -> CheckResult:
     spec = SPECS["answer_groundedness"]
-    if _final(events) is None:
+    final = _final(events)
+    if final is None:
         return CheckResult(spec, Status.NA, "Nessuna risposta finale prodotta.")
-    retrieved = _retrieved_ids(events)
-    if retrieved:
+    articles = _retrieved_articles(events)
+    if not articles:
+        return CheckResult(spec, Status.FAIL,
+                           "Nessun articolo KB recuperato: la risposta non può "
+                           "essere fondata sulle fonti autoritative.",
+                           ["retrieved_context vuoto al momento della risposta"])
+
+    corpus = " ".join(_article_text(a) for a in articles) + " " + _ticket_text(events)
+    corpus_tokens = _content_tokens(corpus)
+    answer_tokens = _content_tokens(final["payload"].get("answer", ""))
+    if not answer_tokens:
+        return CheckResult(spec, Status.NA, "Risposta priva di token informativi.")
+
+    cov, uncovered = _coverage(answer_tokens, corpus_tokens)
+    ids = ", ".join(sorted(a["id"] for a in articles))
+    sample = ", ".join(uncovered[:8]) + (" …" if len(uncovered) > 8 else "")
+    ev = [f"fonti: {ids}",
+          f"copertura {cov:.0%} ({len(answer_tokens) - len(uncovered)}/"
+          f"{len(answer_tokens)} token informativi)"]
+    if uncovered:
+        ev.append(f"token non coperti: {sample}")
+    if cov >= GROUNDEDNESS_THRESHOLD:
         return CheckResult(spec, Status.PASS,
-                           f"Risposta prodotta con {len(retrieved)} articoli KB "
-                           f"disponibili come fondamento.",
-                           [f"articoli recuperati: {', '.join(sorted(retrieved))}"])
+                           f"Copertura lessicale {cov:.0%} dal contenuto delle fonti "
+                           f"(soglia {GROUNDEDNESS_THRESHOLD:.0%}).", ev)
     return CheckResult(spec, Status.FAIL,
-                       "Risposta prodotta senza alcun articolo KB recuperato: "
-                       "non può essere fondata sulle fonti autoritative.",
-                       ["retrieved_context vuoto al momento della risposta"])
+                       f"Copertura lessicale solo {cov:.0%} < soglia "
+                       f"{GROUNDEDNESS_THRESHOLD:.0%}: gran parte della risposta non "
+                       f"trova riscontro nelle fonti recuperate.", ev)
 
 
 def _check_citation(events: list[dict]) -> CheckResult:

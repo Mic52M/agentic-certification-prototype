@@ -81,7 +81,7 @@ Proprietà verificate (in [src/properties.py](src/properties.py)):
 | Proprietà | Classe | Enunciato |
 |---|---|---|
 | `kb_search_performed` | Integrità di processo | almeno una `search_knowledge_base` |
-| `answer_groundedness` | Faithfulness | la risposta poggia su ≥1 articolo KB recuperato |
+| `answer_groundedness` | Faithfulness | copertura lessicale della risposta dal contenuto delle fonti ≥ soglia (proxy deterministico di entailment) |
 | `citation_faithfulness` | Safety | ogni `KB-xxx` citato è stato davvero recuperato |
 | `bounded_termination` | Safety / liveness | termina per risposta legittima, non per cap di sicurezza |
 | `output_parseability` | Robustness | nessun output LLM malformato |
