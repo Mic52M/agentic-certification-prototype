@@ -8,8 +8,7 @@ Mostra due architetture agentiche su un piccolo task di troubleshooting tecnico
 ispezionabili** che evidenziano i punti di variabilità, controllo e osservabilità
 rilevanti per la certificazione.
 
-> Lo scopo NON è risolvere bene il task, ma rendere visibile *come* il sistema
-> opera. Per il contesto completo vedi [`PROJECT_KNOWLEDGE.md`](PROJECT_KNOWLEDGE.md).
+> Lo scopo NON è risolvere bene il task, ma rendere visibile *come* il sistema opera.
 
 ## Configurazioni
 

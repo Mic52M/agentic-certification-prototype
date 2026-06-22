@@ -59,8 +59,7 @@ NOTES = (
     "[bold]Configurazioni[/bold]\n"
     "  single_agent  — un agente, loop ReAct esplicito (max 10 iterazioni).\n"
     "  multi_agent   — orchestratore deterministico + 3 agenti specializzati.\n\n"
-    "[bold]Modello[/bold]  Qwen 3 32B via Groq (qwen/qwen3-32b), temperature 0.0.\n"
-    "Vedi PROJECT_KNOWLEDGE.md per il contesto completo."
+    "[bold]Modello[/bold]  Qwen 3 32B via Groq (qwen/qwen3-32b), temperature 0.0."
 )
 
 
