@@ -106,8 +106,8 @@ evidenziati) e lo **stream di eventi** live. È lo stesso flusso di eventi del J
 inviato al browser via Server-Sent Events — non un log separato: una sola sorgente,
 due sink. Richiede `GROQ_API_KEY` (esegue una run reale).
 
-A fine run compare in alto la **barra di certificazione**: le 5 proprietà si
-illuminano PASS/FAIL/N/A, ognuna con dettaglio ed evidenze.
+> La verifica delle proprietà di certificazione non è nella web UI: si esegue da
+> terminale con `python check.py` su una traccia (vedi sezione precedente).
 
 ## Tracce JSONL
 
