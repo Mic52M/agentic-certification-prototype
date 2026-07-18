@@ -3,57 +3,56 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Agentic Instrumentation Demo — Control / Data / Behavioral</title>
+<title>Agentic Instrumentation Demo</title>
 <style>
   :root{
     --bg:#0d1117; --bg2:#0f141b; --panel:#161b22; --panel2:#1a2029;
     --border:#2a323d; --border2:#3a4451; --txt:#e6edf3; --dim:#8b949e; --dim2:#6e7a89;
     --green:#3fb950; --blue:#58a6ff; --cyan:#39c5cf; --magenta:#bc8cff;
-    --yellow:#d29922; --red:#f85149; --orange:#e88732; --pink:#ee79c1;
+    --yellow:#d29922; --red:#f85149; --orange:#e88732; --pink:#ee79c1; --gray:#6e7681;
+    --tr:#9ec5ff;   /* trace agenti */
     --cf:#5aa9ff;   /* control flow */
     --df:#f79b3b;   /* data flow */
-    --bh:#c48cff;   /* behavioral */
+    --bh:#c48cff;   /* behavioural */
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
       font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
       font-size:14px;height:100%}
-  a{color:var(--blue)}
-  code, pre{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px}
+  a{color:var(--blue)} code,pre{font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px}
 
-  /* Header + macro tabs */
-  header{background:linear-gradient(180deg, #131a24, var(--bg));
+  header{background:linear-gradient(180deg,#131a24,var(--bg));
       border-bottom:1px solid var(--border);padding:14px 20px 0}
   h1{margin:0 0 4px;font-size:18px;letter-spacing:.3px}
   .sub{color:var(--dim);font-size:12px;margin-bottom:14px}
-  .macros{display:flex;gap:2px;border-bottom:1px solid var(--border)}
-  .macro{padding:11px 22px;cursor:pointer;border:1px solid transparent;
-      border-bottom:none;border-top-left-radius:8px;border-top-right-radius:8px;
-      color:var(--dim);letter-spacing:.4px;font-weight:600;font-size:13px;
-      display:flex;gap:8px;align-items:center;background:transparent;
-      transition:all .15s}
-  .macro:hover{color:var(--txt);background:#161c25}
-  .macro .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
-  .macro.control_flow .dot{background:var(--cf)}
-  .macro.data_flow    .dot{background:var(--df)}
-  .macro.behavioral   .dot{background:var(--bh)}
-  .macro.active{color:var(--txt);background:var(--bg);border-color:var(--border);
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--border)}
+  .tab{padding:11px 22px;cursor:pointer;border:1px solid transparent;border-bottom:none;
+      border-top-left-radius:8px;border-top-right-radius:8px;color:var(--dim);
+      letter-spacing:.4px;font-weight:600;font-size:13px;display:flex;gap:8px;
+      align-items:center;background:transparent;transition:all .15s;user-select:none}
+  .tab:hover{color:var(--txt);background:#161c25}
+  .tab .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .tab.trace       .dot{background:var(--tr)}
+  .tab.control_flow .dot{background:var(--cf)}
+  .tab.data_flow    .dot{background:var(--df)}
+  .tab.behavioral   .dot{background:var(--bh)}
+  .tab.active{color:var(--txt);background:var(--bg);border-color:var(--border);
       border-bottom:1px solid var(--bg);margin-bottom:-1px}
-  .macro.active.control_flow{box-shadow:inset 0 3px 0 var(--cf)}
-  .macro.active.data_flow{box-shadow:inset 0 3px 0 var(--df)}
-  .macro.active.behavioral{box-shadow:inset 0 3px 0 var(--bh)}
+  .tab.active.trace       {box-shadow:inset 0 3px 0 var(--tr)}
+  .tab.active.control_flow{box-shadow:inset 0 3px 0 var(--cf)}
+  .tab.active.data_flow   {box-shadow:inset 0 3px 0 var(--df)}
+  .tab.active.behavioral  {box-shadow:inset 0 3px 0 var(--bh)}
 
-  /* Command bar */
-  .commandbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  .commandbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
       padding:14px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
   .cb-group{display:flex;flex-direction:column;gap:2px}
   .cb-group label{font-size:11px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
-  select,input,button{background:var(--panel);color:var(--txt);
-      border:1px solid var(--border);border-radius:6px;padding:6px 10px;
-      font-size:13px;font-family:inherit}
-  select{min-width:260px}
-  input[type="number"]{width:70px}
-  button{cursor:pointer;background:#238636;border-color:#2ea043;font-weight:600;padding:7px 16px}
+  select,input,button{background:var(--panel);color:var(--txt);border:1px solid var(--border);
+      border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit}
+  select{min-width:340px;cursor:pointer}
+  select:hover{border-color:var(--border2)}
+  input[type="number"]{width:80px}
+  button{cursor:pointer;background:#238636;border-color:#2ea043;font-weight:600;padding:8px 18px}
   button:hover{background:#2ea043}
   button:disabled{opacity:.4;cursor:not-allowed}
   .badge{padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid var(--border);color:var(--dim)}
@@ -62,20 +61,77 @@
   .badge.done{color:var(--blue);border-color:var(--blue)}
   .status-line{font-size:12px;color:var(--dim);margin-left:auto;display:flex;gap:12px;align-items:center}
 
-  /* Progress bar */
   .progressbar{height:3px;background:#0a0e13;position:relative;overflow:hidden}
-  .progressbar .fill{height:100%;width:0;background:var(--green);transition:width .3s}
-  .progressbar.macro-control_flow .fill{background:var(--cf)}
-  .progressbar.macro-data_flow    .fill{background:var(--df)}
-  .progressbar.macro-behavioral   .fill{background:var(--bh)}
+  .progressbar .fill{height:100%;width:0;background:var(--tr);transition:width .3s,background .2s}
+  .progressbar.tab-trace       .fill{background:var(--tr)}
+  .progressbar.tab-control_flow .fill{background:var(--cf)}
+  .progressbar.tab-data_flow    .fill{background:var(--df)}
+  .progressbar.tab-behavioral   .fill{background:var(--bh)}
 
-  /* Main layout */
-  main{padding:16px 20px;max-width:1720px;margin:0 auto}
+  main{padding:0}
+  .view{display:none;padding:16px 20px;max-width:1720px;margin:0 auto}
+  .view.active{display:block}
+
+  /* ================= TAB 1: TRACE AGENTI (vecchia grafica ampliata) ================= */
+  .trace-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;
+      min-height:calc(100vh - 210px)}
+  .trace-left{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .trace-right{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;display:flex;flex-direction:column;min-height:0}
+  .panel h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);
+      display:flex;justify-content:space-between;align-items:center}
+  .panel h3 .hint{color:var(--dim2);font-weight:400;text-transform:none;letter-spacing:0}
+  .graph-panel svg{width:100%;height:auto;display:block}
+  .node rect,.node circle{fill:var(--panel2);stroke:var(--border);stroke-width:1.6;
+      transition:all .25s ease}
+  .node text{fill:var(--txt);font-size:12px;font-weight:600}
+  .node text.sub{fill:var(--dim);font-size:10px;font-weight:400}
+  .node.active rect,.node.active circle{stroke:var(--green);stroke-width:3;fill:#16301d;
+      filter:drop-shadow(0 0 8px rgba(63,185,80,.6))}
+  .node.orch.active rect{stroke:var(--cyan);fill:#0e2a2c;filter:drop-shadow(0 0 8px rgba(57,197,207,.6))}
+  .node.visited rect,.node.visited circle{stroke:var(--blue);opacity:.9}
+  .edge{fill:none;stroke:var(--border);stroke-width:1.4;marker-end:url(#arrGr)}
+  .edge.flow{stroke:var(--cyan);stroke-width:2.5;marker-end:url(#arrGrC);
+      filter:drop-shadow(0 0 4px rgba(57,197,207,.7))}
+
+  .state-list{overflow:auto;max-height:38vh;padding-right:4px}
+  .kv{display:grid;grid-template-columns:170px 1fr;gap:8px;padding:5px 0;border-bottom:1px solid #21262d;font-size:12px}
+  .kv .k{color:var(--dim);text-transform:uppercase;letter-spacing:.4px;font-size:10px;padding-top:2px}
+  .kv .v{color:var(--txt);word-break:break-word;line-height:1.5}
+  .kv.changed{background:#15281c;border-radius:4px;padding:6px 8px;margin:2px 0;border-bottom:none}
+
+  #feed{flex:1;overflow:auto;padding:8px 10px;background:var(--panel);border:1px solid var(--border);
+      border-radius:10px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 260px);min-height:400px}
+  .card{border:1px solid var(--border);border-left-width:3px;border-radius:6px;
+      padding:8px 10px;background:var(--panel2);animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .card .t{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+      display:flex;justify-content:space-between;margin-bottom:4px;gap:8px}
+  .card .body{white-space:pre-wrap;word-break:break-word;line-height:1.5;font-size:12px}
+  .card .body .lbl{font-weight:700;color:var(--yellow)}
+  .card .body .lblm{font-weight:700;color:var(--magenta)}
+  .card .body .lblg{font-weight:700;color:var(--green)}
+  .c-orch{border-left-color:var(--cyan)}
+  .c-plan{border-left-color:var(--yellow)}
+  .c-tool{border-left-color:var(--blue)}
+  .c-hand{border-left-color:var(--magenta)}
+  .c-mem{border-left-color:var(--gray)}
+  .c-msg{border-left-color:var(--pink)}
+  .c-reason{border-left-color:var(--dim)}
+  .c-dec{border-left-color:var(--green)}
+  .c-state{border-left-color:var(--gray);background:#131b23}
+  .c-final{border-left-color:var(--green);background:#0f2417}
+  .c-art{border-left-color:var(--yellow);background:#1a1a10}
+  .c-err{border-left-color:var(--red);background:#2d0f0f}
+  .c-meta{border-left-color:var(--magenta);background:#1a1220}
+
+  /* ================= TAB 2-4: viste macro (già esistenti) ================= */
   .overview{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:16px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-  .card h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
-  .card .big{font-size:22px;font-weight:600}
-  .card .meta{font-size:12px;color:var(--dim);margin-top:2px}
+  .card2{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .card2 h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .card2 .big{font-size:22px;font-weight:600}
+  .card2 .meta{font-size:12px;color:var(--dim);margin-top:2px}
 
   .section{margin-top:20px}
   .section h2{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);
@@ -85,7 +141,6 @@
   .section .macro-tag.df{background:var(--df)}
   .section .macro-tag.bh{background:var(--bh)}
 
-  /* Evidence catalog */
   .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
   .ev{background:var(--panel);border:1px solid var(--border);border-radius:10px;
       padding:14px 16px;display:flex;flex-direction:column;gap:8px}
@@ -101,19 +156,15 @@
   .ev .perrun{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
   .ev .perrun .cell{width:18px;height:18px;border-radius:3px;background:#22303f;
       font-size:10px;color:var(--txt);display:flex;align-items:center;justify-content:center}
-  .ev .perrun .cell.n1{background:#274d5c}
-  .ev .perrun .cell.n2{background:#2c6b7b}
-  .ev .perrun .cell.n3{background:#308aa0}
-  .ev .perrun .cell.n5{background:#3aa8c0}
+  .ev .perrun .cell.n1{background:#274d5c} .ev .perrun .cell.n2{background:#2c6b7b}
+  .ev .perrun .cell.n3{background:#308aa0} .ev .perrun .cell.n5{background:#3aa8c0}
   .ev .perrun .cell.n8{background:#39c5cf}
-  .ev details{margin-top:6px}
-  .ev summary{cursor:pointer;color:var(--dim);font-size:12px}
+  .ev details{margin-top:6px} .ev summary{cursor:pointer;color:var(--dim);font-size:12px}
   .ev summary:hover{color:var(--txt)}
   .ev .samples{margin-top:8px;background:#0f141b;border:1px solid var(--border);
       border-radius:6px;padding:8px 10px;font-size:12px;color:var(--dim);
       max-height:220px;overflow:auto;white-space:pre-wrap;line-height:1.5;font-family:'SF Mono',monospace}
 
-  /* Channels grid */
   .channels{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .ch{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
   .ch .cname{font-weight:600;font-size:13px}
@@ -122,22 +173,19 @@
   .ch .bar{height:6px;background:#0a0e13;border-radius:3px;overflow:hidden;margin:6px 0}
   .ch .bar .fill{height:100%;background:var(--df)}
   .ch .allowed{font-size:11px;color:var(--dim)}
-  .ch .allowed .tag{background:#243040;padding:1px 6px;border-radius:8px;margin-right:4px;color:var(--txt);font-size:10px}
+  .ch .allowed .tag,.ch .tag{background:#243040;padding:1px 6px;border-radius:8px;margin-right:4px;color:var(--txt);font-size:10px}
   .ch .warn{color:var(--yellow);font-size:11px;margin-top:4px}
+  .kbd{background:#202832;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
 
-  /* Trajectory list */
   .trajs{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:6px}
   .traj{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
   .traj .head{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:6px}
   .traj .timeline{display:flex;gap:4px;flex-wrap:wrap;font-size:11px}
   .traj .tk{padding:2px 7px;border-radius:8px;background:#22303f;color:var(--txt);border:1px solid var(--border)}
-  .traj .tk.orch{background:#254057}
-  .traj .tk.tool{background:#3d3020;color:var(--yellow)}
-  .traj .tk.hand{background:#3f2c47;color:var(--pink)}
-  .traj .tk.dec{background:#25443b;color:var(--green)}
+  .traj .tk.orch{background:#254057} .traj .tk.tool{background:#3d3020;color:var(--yellow)}
+  .traj .tk.hand{background:#3f2c47;color:var(--pink)} .traj .tk.dec{background:#25443b;color:var(--green)}
   .traj .tk.final{background:#293d24;color:var(--green)}
 
-  /* Live event stream */
   .live{background:var(--panel);border:1px solid var(--border);border-radius:10px;
       max-height:380px;overflow:auto;padding:8px 12px;font-size:12px;color:var(--dim);
       font-family:'SF Mono',monospace;line-height:1.5}
@@ -147,26 +195,7 @@
   .live .row .tag.DF{background:#3d2617;color:var(--df)}
   .live .row .tag.BH{background:#301f47;color:var(--bh)}
 
-  /* Empty state */
-  .empty{padding:40px;text-align:center;color:var(--dim);font-size:13px}
-
-  /* utils */
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-  @media (max-width:1100px){.grid2,.grid3,.overview{grid-template-columns:1fr}}
-  .hidden{display:none}
-  .dim{color:var(--dim)}
-  .kbd{background:#202832;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
-
-  /* Aggregate table */
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  th,td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
-  th{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
-  td.num{text-align:right;font-variant-numeric:tabular-nums}
-
-  /* Architecture map */
   .archmap{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
-  .archmap svg{width:100%;height:auto}
   .arch-node{fill:var(--panel2);stroke:var(--border);stroke-width:1.4}
   .arch-node.hi-cf{stroke:var(--cf);stroke-width:2.4;filter:drop-shadow(0 0 6px rgba(90,169,255,.4))}
   .arch-node.hi-df{stroke:var(--df);stroke-width:2.4;filter:drop-shadow(0 0 6px rgba(247,155,59,.4))}
@@ -174,23 +203,31 @@
   .arch-label{fill:var(--txt);font-size:12px;font-weight:600}
   .arch-sub{fill:var(--dim);font-size:10px}
   .arch-edge{fill:none;stroke:var(--border2);stroke-width:1.4;marker-end:url(#arrEdge)}
+
+  .empty{padding:40px;text-align:center;color:var(--dim);font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media (max-width:1100px){.grid2,.grid3,.overview,.trace-layout{grid-template-columns:1fr}}
+  .dim{color:var(--dim)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+  th{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
 
 <header>
   <h1>🔬 Instrumentation Demo — <span id="model-label" class="dim">…</span></h1>
-  <div class="sub">Raccolta di evidenze osservabili sulle tre macro-dimensioni di ricerca. Nessun giudizio di verificabilità: solo sonde, dati e aggregazione.</div>
-  <div class="macros">
-    <div class="macro control_flow active" data-macro="control_flow">
-      <span class="dot"></span> Control Flow
-    </div>
-    <div class="macro data_flow" data-macro="data_flow">
-      <span class="dot"></span> Data Flow
-    </div>
-    <div class="macro behavioral" data-macro="behavioral">
-      <span class="dot"></span> Comportamentale
-    </div>
+  <div class="sub">
+    Prima tab: traccia live degli agenti (macchina a stati, stato condiviso, thought/action/observation).
+    Le altre tre: evidenze aggregate per macro-dimensione di ricerca.
+  </div>
+  <div class="tabs" id="tabs">
+    <div class="tab trace       active" data-tab="trace">        <span class="dot"></span> Trace agenti</div>
+    <div class="tab control_flow"       data-tab="control_flow"> <span class="dot"></span> Control Flow</div>
+    <div class="tab data_flow"          data-tab="data_flow">    <span class="dot"></span> Data Flow</div>
+    <div class="tab behavioral"         data-tab="behavioral">   <span class="dot"></span> Behavioural Flow</div>
   </div>
 </header>
 
@@ -216,152 +253,186 @@
     <span id="prog-text"></span>
   </div>
 </div>
-<div id="progressbar" class="progressbar macro-control_flow"><div class="fill"></div></div>
+<div id="progressbar" class="progressbar tab-trace"><div class="fill"></div></div>
 
 <main>
-  <!-- Overview -->
-  <section class="overview">
-    <div class="card" id="ov-macro">
-      <h3>Macro selezionata</h3>
-      <div class="big" id="ov-macro-name">Control Flow</div>
-      <div class="meta" id="ov-macro-desc">Orchestrazione, decisioni di routing, handoff e metriche di percorso.</div>
-    </div>
-    <div class="card">
-      <h3>Run eseguite</h3>
-      <div class="big" id="ov-runs">—</div>
-      <div class="meta">di <span id="ov-runs-target">—</span> pianificate</div>
-    </div>
-    <div class="card">
-      <h3>Modello / temperatura</h3>
-      <div class="big" id="ov-model" style="font-size:14px;font-weight:400">—</div>
-      <div class="meta" id="ov-ticket">Ticket: —</div>
+  <!-- ============ TAB 1: TRACE AGENTI ============ -->
+  <section class="view active" data-view="trace">
+    <div class="trace-layout">
+      <div class="trace-left">
+        <div class="panel graph-panel">
+          <h3>Macchina a stati · orchestrator + agenti <span class="hint">nodo attivo evidenziato in verde, archi che si accendono a ogni handoff</span></h3>
+          <svg id="graph-svg" viewBox="0 0 900 380">
+            <defs>
+              <marker id="arrGr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L7,3 L0,6 Z" fill="#2a323d"/></marker>
+              <marker id="arrGrC" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L7,3 L0,6 Z" fill="#39c5cf"/></marker>
+            </defs>
+            <!-- edges (orchestrator hub -> agents) -->
+            <path class="edge" id="e-reader"        d="M450,80  C280,110 200,110 175,130"/>
+            <path class="edge" id="e-planner"       d="M470,90  C400,120 355,120 335,130"/>
+            <path class="edge" id="e-log_inv"       d="M490,90  C520,120 555,120 575,130"/>
+            <path class="edge" id="e-metrics"       d="M510,80  C650,110 720,110 745,130"/>
+            <path class="edge" id="e-pm"            d="M450,110 C280,190 200,220 175,240"/>
+            <path class="edge" id="e-classifier"    d="M470,120 C400,200 355,220 335,240"/>
+            <path class="edge" id="e-summarizer"    d="M490,120 C520,200 555,220 575,240"/>
+            <path class="edge" id="e-workspace"     d="M510,110 C650,190 720,220 745,240"/>
+            <!-- start / end -->
+            <path class="edge" d="M40,50  L410,60"/>
+            <path class="edge" d="M745,340 L860,340"/>
+            <g class="node" id="node-start"><circle cx="30" cy="50" r="18"/><text class="sub" x="30" y="54" text-anchor="middle">START</text></g>
+            <g class="node orch" id="node-orchestrator"><rect x="410" y="30" width="160" height="60" rx="10"/>
+              <text x="490" y="55" text-anchor="middle">Orchestrator</text>
+              <text class="sub" x="490" y="72" text-anchor="middle">rule-based routing</text></g>
+            <!-- row 1: agents -->
+            <g class="node" id="node-reader"><rect x="80" y="130" width="150" height="52" rx="8"/>
+              <text x="155" y="152" text-anchor="middle">Reader</text>
+              <text class="sub" x="155" y="169" text-anchor="middle">incident snapshot</text></g>
+            <g class="node" id="node-planner"><rect x="255" y="130" width="150" height="52" rx="8"/>
+              <text x="330" y="152" text-anchor="middle">Planner</text>
+              <text class="sub" x="330" y="169" text-anchor="middle">A2 · piano triage</text></g>
+            <g class="node" id="node-log_investigator"><rect x="495" y="130" width="160" height="52" rx="8"/>
+              <text x="575" y="152" text-anchor="middle">Log Investigator</text>
+              <text class="sub" x="575" y="169" text-anchor="middle">C3/C4 · fetch_logs</text></g>
+            <g class="node" id="node-metrics_analyst"><rect x="675" y="130" width="160" height="52" rx="8"/>
+              <text x="755" y="152" text-anchor="middle">Metrics Analyst</text>
+              <text class="sub" x="755" y="169" text-anchor="middle">C3/C4 · fetch_metrics</text></g>
+            <!-- row 2 -->
+            <g class="node" id="node-postmortem_retriever"><rect x="80" y="240" width="150" height="52" rx="8"/>
+              <text x="155" y="262" text-anchor="middle">PM Retriever</text>
+              <text class="sub" x="155" y="279" text-anchor="middle">C3/C4 · postmortem</text></g>
+            <g class="node" id="node-classifier"><rect x="255" y="240" width="150" height="52" rx="8"/>
+              <text x="330" y="262" text-anchor="middle">Classifier</text>
+              <text class="sub" x="330" y="279" text-anchor="middle">BH · decision points</text></g>
+            <g class="node" id="node-summarizer"><rect x="495" y="240" width="160" height="52" rx="8"/>
+              <text x="575" y="262" text-anchor="middle">Summarizer</text>
+              <text class="sub" x="575" y="279" text-anchor="middle">C1 · C7 · final report</text></g>
+            <g class="node" id="node-workspace"><rect x="675" y="240" width="160" height="52" rx="8" stroke-dasharray="4 3"/>
+              <text x="755" y="262" text-anchor="middle">Shared Wksp</text>
+              <text class="sub" x="755" y="279" text-anchor="middle">C5 · read/write</text></g>
+            <g class="node" id="node-end"><circle cx="880" cy="340" r="18"/><text class="sub" x="880" y="344" text-anchor="middle">END</text></g>
+          </svg>
+        </div>
+        <div class="panel">
+          <h3>Stato condiviso / traiettoria <span class="hint">campi cambiati nell'ultima transizione evidenziati</span></h3>
+          <div class="state-list" id="state-list"><span class="dim">Nessuna run in corso.</span></div>
+        </div>
+      </div>
+      <div class="trace-right">
+        <div class="panel" style="flex:1;padding:8px 10px">
+          <h3>Feed eventi live <span class="hint">thought / action / observation / handoff · scorre in tempo reale</span></h3>
+          <div id="feed"></div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- Content per macro -->
-  <div id="view-container">
-    <div class="empty">Seleziona una macro e lancia un esperimento per popolare le evidenze.</div>
-  </div>
-
-  <!-- Live event stream (always visible) -->
-  <section class="section">
-    <h2>Live event stream <span class="dim">(ultimi eventi, filtrati per macro)</span></h2>
-    <div class="live" id="live"></div>
-  </section>
-
-  <!-- Architecture map -->
-  <section class="section">
-    <h2>Architettura osservata <span class="dim">— nodi da cui provengono le evidenze della macro selezionata</span></h2>
-    <div class="archmap" id="archmap"></div>
-  </section>
+  <!-- ============ TAB 2: CONTROL FLOW ============ -->
+  <section class="view" data-view="control_flow"><div id="v-cf"></div></section>
+  <!-- ============ TAB 3: DATA FLOW ============ -->
+  <section class="view" data-view="data_flow"><div id="v-df"></div></section>
+  <!-- ============ TAB 4: BEHAVIOURAL ============ -->
+  <section class="view" data-view="behavioral"><div id="v-bh"></div></section>
 </main>
 
 <script>
-// ============================================================
-// STATO GLOBALE E HELPERS
-// ============================================================
+// ========================================================================
+// GLOBAL STATE
+// ========================================================================
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
-const esc = s => String(s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
-const short = (x,n=200) => {
-  const s = typeof x==='string' ? x : JSON.stringify(x);
-  return s.length>n ? s.slice(0,n)+' …' : s;
-};
+const esc = s => String(s ?? '').replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+const short = (x,n=200) => { const s = typeof x==='string' ? x : JSON.stringify(x); return s.length>n ? s.slice(0,n)+' …' : s; };
 
-let currentMacro = 'control_flow';
+let currentTab = 'trace';
 let currentExperiment = null;
-let liveEvents = [];
-let progressState = {runIndex:0, totalRuns:0};
+let liveEvents = [];       // eventi grezzi ricevuti via SSE (per il feed grezzo)
+let lastState = {};        // state condiviso ricostruito dagli eventi
+let currentRunIdx = 0;
+let totalRunsTarget = 0;
 let es = null;
 let modelLabel = '';
 
-const MACRO_MAP = {
-  control_flow: {name:'Control Flow', tag:'cf', color:'var(--cf)',
-    desc:'Orchestrazione, decisioni di routing, handoff e metriche di percorso.'},
-  data_flow:    {name:'Data Flow', tag:'df', color:'var(--df)',
-    desc:'Canali di comunicazione C1..C7 (AgentLeak), payload per canale e allowed set.'},
-  behavioral:   {name:'Comportamentale', tag:'bh', color:'var(--bh)',
-    desc:'Traiettorie end-to-end, coerenza stato↔output, decisioni successive, varianza.'},
-};
+// ========================================================================
+// TAB SWITCHING (robust: id-based, no closures on element refs)
+// ========================================================================
+function switchTab(tabId) {
+  currentTab = tabId;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  $$('.view').forEach(v => v.classList.toggle('active', v.dataset.view === tabId));
+  const pb = $('#progressbar');
+  pb.className = `progressbar tab-${tabId}`;
+  // se abbiamo già l'aggregato, ridisegna la vista macro corrispondente
+  if (currentExperiment && tabId !== 'trace') renderMacroView(tabId);
+}
+$('#tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('.tab');
+  if (t && t.dataset.tab) switchTab(t.dataset.tab);
+});
 
-// ============================================================
-// BOOTSTRAP: config e lista ticket
-// ============================================================
+// ========================================================================
+// BOOTSTRAP
+// ========================================================================
 async function loadConfig() {
-  const cfg = await fetch('/api/config').then(r=>r.json());
-  modelLabel = cfg.model;
-  $('#model-label').textContent = `modello: ${cfg.model} · temp ${cfg.temperature}`;
-  $('#ov-model').textContent = `${cfg.model} · temp ${cfg.temperature}`;
-  $('#runs').value = cfg.runs_default;
-  $('#delay').value = cfg.delay_default;
+  try {
+    const cfg = await fetch('/api/config').then(r=>r.json());
+    modelLabel = cfg.model;
+    $('#model-label').textContent = `modello: ${cfg.model} · temp ${cfg.temperature}`;
+    if ($('#runs')) $('#runs').value = cfg.runs_default;
+    if ($('#delay')) $('#delay').value = cfg.delay_default;
+  } catch(err) {
+    console.error('config load failed', err);
+    $('#model-label').textContent = '(config non caricata)';
+  }
 }
 async function loadIncidents() {
-  const list = await fetch('/api/incidents').then(r=>r.json());
-  const sel = $('#incident');
-  sel.innerHTML = '';
-  for (const i of list) {
-    const o = document.createElement('option');
-    o.value = i.id;
-    o.textContent = `${i.id} · ${i.reporter_name} (${i.service_hint}) — ${i.primary_symptom}`;
-    sel.appendChild(o);
+  try {
+    const list = await fetch('/api/incidents').then(r=>r.json());
+    const sel = $('#incident'); sel.innerHTML = '';
+    for (const i of list) {
+      const o = document.createElement('option');
+      o.value = i.id;
+      o.textContent = `${i.id} · ${i.reporter_name} (${i.service_hint}) — ${i.primary_symptom}`;
+      sel.appendChild(o);
+    }
+  } catch(err) {
+    console.error('incidents load failed', err);
   }
-  updateTicketOverview();
-}
-$('#incident')?.addEventListener('change', updateTicketOverview);
-function updateTicketOverview() {
-  const t = $('#incident');
-  if (t) $('#ov-ticket').textContent = `Ticket: ${t.value}`;
 }
 
-// ============================================================
-// SELEZIONE MACRO
-// ============================================================
-$$('.macro').forEach(el => el.addEventListener('click', () => {
-  currentMacro = el.dataset.macro;
-  $$('.macro').forEach(x=>x.classList.remove('active'));
-  el.classList.add('active');
-  $('#ov-macro-name').textContent = MACRO_MAP[currentMacro].name;
-  $('#ov-macro-desc').textContent = MACRO_MAP[currentMacro].desc;
-  $('#progressbar').className = `progressbar macro-${currentMacro}`;
-  renderView();
-  renderArchMap();
-  renderLive(); // filtra live
-}));
-
-// ============================================================
-// LANCIO ESPERIMENTO
-// ============================================================
+// ========================================================================
+// EXPERIMENT RUN
+// ========================================================================
 $('#btn-run').addEventListener('click', () => {
   const incident = $('#incident').value;
-  const runs = parseInt($('#runs').value, 10);
-  const delay = parseFloat($('#delay').value);
-  liveEvents = [];
-  currentExperiment = null;
-  progressState = {runIndex:0, totalRuns:runs};
-  $('#ov-runs').textContent = 0;
-  $('#ov-runs-target').textContent = runs;
+  if (!incident) { alert('Seleziona un ticket'); return; }
+  const runs = parseInt($('#runs').value, 10) || 10;
+  const delay = parseFloat($('#delay').value) || 0;
+
+  liveEvents = []; currentExperiment = null; lastState = {};
+  currentRunIdx = 0; totalRunsTarget = runs;
   $('#status').textContent = 'starting';
   $('#status').className = 'badge run';
   $('#prog-text').textContent = '';
   $('#progressbar').querySelector('.fill').style.width = '0%';
-  $('#view-container').innerHTML = '<div class="empty">Esperimento in corso: raccolta eventi live…</div>';
-  $('#live').innerHTML = '';
+  $('#feed').innerHTML = '';
+  $('#state-list').innerHTML = '<span class="dim">Run in corso: eventi in arrivo…</span>';
+  $('#v-cf').innerHTML = ''; $('#v-df').innerHTML = ''; $('#v-bh').innerHTML = '';
+  resetGraph();
   $('#btn-run').disabled = true;
 
   if (es) { es.close(); es = null; }
-  const url = `/api/experiment/stream?incident=${encodeURIComponent(incident)}&macro=${currentMacro}&runs=${runs}&delay=${delay}`;
+  // la macro comunicata al server serve solo per i metadati; il server
+  // ci manda comunque TUTTI gli eventi, e noi filtriamo lato client.
+  const macro = currentTab === 'trace' ? 'control_flow' : currentTab;
+  const url = `/api/experiment/stream?incident=${encodeURIComponent(incident)}&macro=${macro}&runs=${runs}&delay=${delay}`;
   es = new EventSource(url);
-  es.onmessage = (e) => {
-    try { handleStream(JSON.parse(e.data)); }
-    catch(err) { console.error(err, e.data); }
-  };
+  es.onmessage = (e) => { try { handleStream(JSON.parse(e.data)); } catch(err) { console.error(err, e.data); } };
   es.addEventListener('done', () => {
-    es.close(); es = null;
+    if (es) { es.close(); es = null; }
     $('#btn-run').disabled = false;
-    if ($('#status').textContent !== 'error') {
-      $('#status').textContent = 'done';
-      $('#status').className = 'badge done';
-    }
+    if ($('#status').textContent !== 'error') { $('#status').textContent = 'done'; $('#status').className = 'badge done'; }
   });
   es.onerror = () => {
     if (es) { es.close(); es = null; }
@@ -370,102 +441,263 @@ $('#btn-run').addEventListener('click', () => {
 });
 
 function handleStream(msg) {
-  if (msg.stream === 'event') {
-    onEvent(msg.data);
-  } else if (msg.stream === 'progress') {
-    onProgress(msg.data);
-  } else if (msg.stream === 'error') {
-    $('#status').textContent = 'error';
-    $('#status').className = 'badge err';
+  if (msg.stream === 'event') onEvent(msg.data);
+  else if (msg.stream === 'progress') onProgress(msg.data);
+  else if (msg.stream === 'error') {
+    $('#status').textContent = 'error'; $('#status').className = 'badge err';
     console.error(msg.data);
+    appendCard('err', 'errore', esc(msg.data.detail || 'errore'));
   }
 }
 
 function onProgress(p) {
   if (p.kind === 'experiment_start') {
-    $('#status').textContent = 'running';
-    $('#status').className = 'badge run';
+    $('#status').textContent = 'running'; $('#status').className = 'badge run';
+    appendCard('meta', `esperimento avviato · ${p.meta.experiment_id.slice(-8)}`,
+      `ticket <b>${esc(p.meta.ticket_id)}</b> · model ${esc(p.meta.model)} · ${p.meta.runs_target} run pianificate`);
   } else if (p.kind === 'run_start') {
-    progressState.runIndex = p.run_index;
+    currentRunIdx = p.run_index;
     $('#prog-text').textContent = `run ${p.run_index}/${p.n_runs}`;
-    $('#ov-runs').textContent = p.run_index - 1;
     const pct = ((p.run_index - 1) / p.n_runs) * 100;
     $('#progressbar').querySelector('.fill').style.width = `${pct}%`;
+    resetGraph();
+    appendCard('meta', `▶ run ${p.run_index}/${p.n_runs}`, `run_id ${p.run_id.slice(-10)}`);
   } else if (p.kind === 'run_end') {
-    $('#ov-runs').textContent = p.run_index;
     const pct = (p.run_index / p.n_runs) * 100;
     $('#progressbar').querySelector('.fill').style.width = `${pct}%`;
+    appendCard('meta', `■ run ${p.run_index}/${p.n_runs} conclusa`, `${p.events} eventi · ok=${p.ok}`);
   } else if (p.kind === 'experiment_end') {
     currentExperiment = p;
     $('#progressbar').querySelector('.fill').style.width = '100%';
-    renderView();
-    renderArchMap();
+    // rendering delle tre viste macro (calcolato una volta a fine batch)
+    renderMacroView('control_flow');
+    renderMacroView('data_flow');
+    renderMacroView('behavioral');
   }
 }
 
+// ========================================================================
+// LIVE EVENT HANDLING (Tab 1)
+// ========================================================================
 function onEvent(ev) {
   liveEvents.push(ev);
-  if (liveEvents.length > 800) liveEvents.shift(); // safety cap
-  renderLive();
+  if (liveEvents.length > 2000) liveEvents.shift();
+  updateStateFromEvent(ev);
+  animateGraph(ev);
+  renderFeedCard(ev);
 }
 
-// ============================================================
-// RENDER: live event stream
-// ============================================================
-function renderLive() {
-  const focus = currentMacro;
-  const box = $('#live');
-  const filtered = liveEvents.filter(ev => Array.isArray(ev.macro_categories) && ev.macro_categories.includes(focus));
-  const recent = filtered.slice(-140);
-  if (recent.length === 0) {
-    box.innerHTML = `<div class="dim">Nessun evento della macro <b>${MACRO_MAP[focus].name}</b> ancora raccolto.</div>`;
-    return;
+function agentNodeId(name) {
+  if (!name) return null;
+  if (name === 'orchestrator') return 'node-orchestrator';
+  if (name === '__end__' || name === 'END') return 'node-end';
+  return `node-${name}`;
+}
+function resetGraph() {
+  $$('.node').forEach(n => n.classList.remove('active','visited'));
+  $$('.edge').forEach(e => e.classList.remove('flow'));
+}
+function highlightNode(id) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  $$('.node.active').forEach(n => n.classList.remove('active'));
+  el.classList.add('active','visited');
+}
+function flashEdge(agentName) {
+  const map = {reader:'e-reader', planner:'e-planner', log_investigator:'e-log_inv',
+    metrics_analyst:'e-metrics', postmortem_retriever:'e-pm',
+    classifier:'e-classifier', summarizer:'e-summarizer'};
+  const eid = map[agentName];
+  if (!eid) return;
+  const el = document.getElementById(eid);
+  if (!el) return;
+  el.classList.add('flow');
+  setTimeout(()=>el.classList.remove('flow'), 1500);
+}
+function animateGraph(ev) {
+  const k = ev.event_type;
+  if (k === 'orchestrator_decision') {
+    highlightNode('node-orchestrator');
+    flashEdge(ev.target_component);
+    if (ev.target_component === '__end__') highlightNode('node-end');
+  } else if (k === 'handoff') {
+    if (ev.target_component && ev.target_component !== 'orchestrator' && ev.target_component !== '__end__')
+      highlightNode(agentNodeId(ev.target_component));
+    flashEdge(ev.target_component);
+  } else if (k === 'shared_memory_write' || k === 'shared_memory_read') {
+    // flash sull'edge del workspace
+    const el = document.getElementById('e-workspace');
+    if (el) { el.classList.add('flow'); setTimeout(()=>el.classList.remove('flow'),1200); }
+  } else if (ev.agent_id) {
+    highlightNode(agentNodeId(ev.agent_id));
   }
-  const html = recent.map(ev => {
-    const tag = focus==='control_flow'?'CF':focus==='data_flow'?'DF':'BH';
-    const ch = ev.channel_id ? ` <span class="dim">[${ev.channel_id}]</span>` : '';
-    const who = ev.agent_id || ev.source_component || 'sys';
-    const arrow = ev.target_component ? ` → <b>${esc(ev.target_component)}</b>` : '';
-    return `<div class="row"><span class="tag ${tag}">${ev.event_type}</span><b>${esc(who)}</b>${arrow}${ch} — ${esc(short(ev.payload_summary||'', 220))}</div>`;
-  }).join('');
-  box.innerHTML = html;
-  box.scrollTop = box.scrollHeight;
 }
 
-// ============================================================
-// RENDER: vista per macro
-// ============================================================
-function renderView() {
-  if (!currentExperiment) return;
-  const agg = currentExperiment.aggregate;
-  const view = $('#view-container');
-  if (currentMacro === 'control_flow')  view.innerHTML = renderControlFlow(agg.control_flow);
-  else if (currentMacro === 'data_flow') view.innerHTML = renderDataFlow(agg.data_flow);
-  else view.innerHTML = renderBehavioral(agg.behavioral);
+// stato condiviso ricostruito dagli eventi (approssimazione visiva)
+const SHARED_KEYS = ['incident_snapshot','triage_plan','affected_service',
+                     'findings_logs','findings_metrics','related_postmortems',
+                     'hypothesis_ranked','classification','priority','confidence',
+                     'recommended_actions','final_report','iteration','agent_history'];
+function updateStateFromEvent(ev) {
+  const changed = [];
+  const k = ev.event_type;
+  const md = ev.metadata || {};
+  const pr = ev.payload_redacted || {};
+  if (k === 'shared_memory_write') {
+    const key = md.key || pr.key;
+    if (key) { lastState[key] = pr.value ?? '(scritto)'; changed.push(key); }
+  } else if (k === 'orchestrator_decision') {
+    lastState.iteration = md.step ?? lastState.iteration;
+    lastState.next_node = ev.target_component;
+    changed.push('iteration','next_node');
+  } else if (k === 'run_end') {
+    for (const key of ['classification','priority','affected_service','agent_history']) {
+      if (md[key] !== undefined) { lastState[key] = md[key]; changed.push(key); }
+    }
+  } else if (k === 'final_output') {
+    lastState.final_report = short(ev.payload_summary, 300); changed.push('final_report');
+  }
+  renderStateList(changed);
+}
+function renderStateList(changedKeys) {
+  const box = $('#state-list');
+  const keys = Object.keys(lastState);
+  if (keys.length === 0) { box.innerHTML = '<span class="dim">In attesa di eventi…</span>'; return; }
+  const rows = [];
+  const order = SHARED_KEYS.filter(k => k in lastState).concat(keys.filter(k => !SHARED_KEYS.includes(k)));
+  for (const k of order) {
+    const v = lastState[k];
+    let vs = typeof v === 'string' ? v : JSON.stringify(v);
+    if (vs && vs.length > 260) vs = vs.slice(0, 260) + ' …';
+    const cls = (changedKeys||[]).includes(k) ? ' changed' : '';
+    rows.push(`<div class="kv${cls}"><span class="k">${esc(k)}</span><span class="v">${esc(vs)}</span></div>`);
+  }
+  box.innerHTML = rows.join('');
+}
+
+// feed cards
+function feedCardClass(ev) {
+  const k = ev.event_type;
+  if (k === 'orchestrator_decision') return 'orch';
+  if (k === 'planning_span' || k === 'replanning') return 'plan';
+  if (k === 'tool_call' || k === 'tool_result') return 'tool';
+  if (k === 'handoff') return 'hand';
+  if (k === 'shared_memory_write' || k === 'shared_memory_read') return 'mem';
+  if (k === 'inter_agent_message') return 'msg';
+  if (k === 'reasoning_step') return 'reason';
+  if (k === 'decision_point') return 'dec';
+  if (k === 'state_snapshot') return 'state';
+  if (k === 'final_output') return 'final';
+  if (k === 'artifact_produced') return 'art';
+  if (k === 'error') return 'err';
+  if (k === 'run_metadata' || k === 'run_end') return 'meta';
+  return 'meta';
+}
+function renderFeedCard(ev) {
+  const cls = feedCardClass(ev);
+  const k = ev.event_type;
+  const who = ev.agent_id || ev.source_component || 'sys';
+  const to = ev.target_component ? ` → <b>${esc(ev.target_component)}</b>` : '';
+  const ch = ev.channel_id ? ` <span class="dim">[${ev.channel_id}]</span>` : '';
+  const summary = esc(short(ev.payload_summary || '', 500));
+  let body = summary;
+  // formattazione speciale per alcuni tipi
+  if (k === 'reasoning_step') {
+    body = `<span class="lbl">Thought:</span> ${summary}`;
+  } else if (k === 'planning_span') {
+    const plan = (ev.metadata && ev.metadata.plan) || [];
+    body = `<span class="lblm">Plan (${plan.length} step):</span>\n${plan.map((p,i)=>`  ${i+1}. ${esc(p)}`).join('\n')}`;
+  } else if (k === 'tool_call') {
+    body = `<span class="lbl">Action:</span> <b>${esc(ev.tool_name)}</b>(${summary})`;
+  } else if (k === 'tool_result') {
+    const okBadge = (ev.metadata && ev.metadata.success===false) ? ' <span style="color:var(--red)">✗</span>' : ' <span style="color:var(--green)">✓</span>';
+    body = `<span class="lbl">Observation${okBadge}:</span> ${summary}`;
+  } else if (k === 'orchestrator_decision') {
+    const md = ev.metadata || {};
+    body = `→ <b>${esc(ev.target_component)}</b> <span class="lblm">motivo:</span> ${esc(md.reason||'')}`;
+    if (md.alternatives && md.alternatives.length) body += `\n<span class="dim">alt: ${md.alternatives.map(esc).join(', ')}</span>`;
+  } else if (k === 'handoff') {
+    body = `<b>${esc(ev.source_component)}</b> → <b>${esc(ev.target_component)}</b> · ${summary}`;
+  } else if (k === 'decision_point') {
+    const md = ev.metadata || {};
+    body = `<span class="lblg">Decision:</span> ${esc(md.label||'')} = <b>${esc(md.choice||'')}</b>`;
+  } else if (k === 'shared_memory_write') {
+    body = `<span class="lblm">WRITE</span> workspace/${esc((ev.metadata||{}).key||'?')} = ${summary}`;
+  } else if (k === 'shared_memory_read') {
+    body = `<span class="dim">READ</span> workspace/${esc((ev.metadata||{}).key||'?')}`;
+  } else if (k === 'inter_agent_message') {
+    body = `✉︎ ${summary}`;
+  } else if (k === 'final_output') {
+    body = `<span class="lblg">FINAL:</span> ${summary}`;
+  } else if (k === 'artifact_produced') {
+    body = `📎 ${summary}`;
+  }
+  appendCard(cls, `${k} · ${who}${to}${ch}`, body);
+}
+function appendCard(cls, header, body) {
+  const feed = $('#feed');
+  const el = document.createElement('div');
+  el.className = `card c-${cls}`;
+  el.innerHTML = `<div class="t"><span>${esc(header)}</span></div><div class="body">${body}</div>`;
+  feed.appendChild(el);
+  // scroll dolce solo se in fondo o quasi
+  const nearBottom = (feed.scrollHeight - feed.scrollTop - feed.clientHeight) < 60;
+  if (nearBottom) feed.scrollTop = feed.scrollHeight;
+  // cap cards
+  while (feed.children.length > 400) feed.removeChild(feed.firstChild);
+}
+
+// ========================================================================
+// MACRO VIEWS (Tab 2-4)
+// ========================================================================
+const MACRO_LABEL = {
+  control_flow:{ name:'Control Flow', tag:'cf', desc:'Orchestrazione, piani, handoff, metriche di percorso.' },
+  data_flow:   { name:'Data Flow',    tag:'df', desc:'Canali C1..C7 (AgentLeak), payload per canale, allowed set.' },
+  behavioral:  { name:'Behavioural Flow', tag:'bh', desc:'Traiettorie end-to-end, state↔output, decisioni, varianza.' },
+};
+
+function overviewCard(macroKey) {
+  const meta = currentExperiment?.meta || {};
+  const runs = currentExperiment?.runs || [];
+  return `
+  <section class="overview">
+    <div class="card2">
+      <h3>Macro selezionata</h3>
+      <div class="big">${MACRO_LABEL[macroKey].name}</div>
+      <div class="meta">${MACRO_LABEL[macroKey].desc}</div>
+    </div>
+    <div class="card2">
+      <h3>Run eseguite</h3>
+      <div class="big">${runs.length}</div>
+      <div class="meta">di ${meta.runs_target ?? '—'} pianificate</div>
+    </div>
+    <div class="card2">
+      <h3>Modello / temperatura</h3>
+      <div class="big" style="font-size:14px;font-weight:400">${esc(meta.model || modelLabel)} · temp ${meta.temperature ?? '—'}</div>
+      <div class="meta">Ticket: ${esc(meta.ticket_id || '—')} · exp ${esc((meta.experiment_id||'').slice(-8))}</div>
+    </div>
+  </section>`;
 }
 
 function perRunHeat(perRun) {
   const values = Object.values(perRun || {});
   return values.map(v => {
     let cls = 'cell';
-    if (v >= 8) cls += ' n8';
-    else if (v >= 5) cls += ' n5';
-    else if (v >= 3) cls += ' n3';
-    else if (v >= 2) cls += ' n2';
+    if (v >= 8) cls += ' n8'; else if (v >= 5) cls += ' n5';
+    else if (v >= 3) cls += ' n3'; else if (v >= 2) cls += ' n2';
     else if (v >= 1) cls += ' n1';
     return `<span class="${cls}" title="${v} eventi">${v}</span>`;
   }).join('');
 }
-
 function evidenceCard(macro, ev, opts={}) {
-  const tag = macro;
   const total = opts.total ?? '—';
   const perRun = opts.per_run ? perRunHeat(opts.per_run) : '';
   const samples = opts.samples ? `<details><summary>Estratti (${(opts.samples||[]).length})</summary><div class="samples">${
     (opts.samples||[]).map(s => esc(typeof s==='string'?s:JSON.stringify(s,null,1))).join('\n\n')
   }</div></details>` : '';
   return `
-    <div class="ev ${tag}">
+    <div class="ev ${macro}">
       <div class="title">${ev.name}<span class="count">${total}</span></div>
       <div class="row"><span class="k">Dove</span><span class="v">${esc(ev.where)}</span></div>
       <div class="row"><span class="k">Come</span><span class="v">${esc(ev.how)}</span></div>
@@ -476,153 +708,129 @@ function evidenceCard(macro, ev, opts={}) {
     </div>`;
 }
 
+function renderMacroView(macroKey) {
+  if (!currentExperiment) return;
+  const target = macroKey === 'control_flow' ? $('#v-cf')
+              : macroKey === 'data_flow'    ? $('#v-df') : $('#v-bh');
+  const agg = currentExperiment.aggregate;
+  let html = overviewCard(macroKey);
+  if (macroKey === 'control_flow')  html += renderControlFlow(agg.control_flow);
+  else if (macroKey === 'data_flow') html += renderDataFlow(agg.data_flow);
+  else html += renderBehavioral(agg.behavioral);
+  // live stream filtrato + arch map in coda
+  html += `<section class="section"><h2>Live event stream <span class="dim">(eventi della macro, live/riproduzione)</span></h2><div class="live" id="live-${macroKey}"></div></section>`;
+  html += `<section class="section"><h2>Architettura osservata</h2><div class="archmap" id="arch-${macroKey}"></div></section>`;
+  target.innerHTML = html;
+  renderMacroLive(macroKey);
+  renderArchMap(macroKey);
+}
+
+function renderMacroLive(macroKey) {
+  const box = document.getElementById(`live-${macroKey}`);
+  if (!box) return;
+  const filtered = liveEvents.filter(ev => Array.isArray(ev.macro_categories) && ev.macro_categories.includes(macroKey));
+  const recent = filtered.slice(-160);
+  if (!recent.length) { box.innerHTML = '<div class="dim">Nessun evento della macro raccolto.</div>'; return; }
+  const tag = macroKey==='control_flow'?'CF':macroKey==='data_flow'?'DF':'BH';
+  box.innerHTML = recent.map(ev => {
+    const who = ev.agent_id || ev.source_component || 'sys';
+    const arrow = ev.target_component ? ` → <b>${esc(ev.target_component)}</b>` : '';
+    const ch = ev.channel_id ? ` <span class="dim">[${ev.channel_id}]</span>` : '';
+    return `<div class="row"><span class="tag ${tag}">${ev.event_type}</span><b>${esc(who)}</b>${arrow}${ch} — ${esc(short(ev.payload_summary||'',220))}</div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
 function renderControlFlow(cf) {
-  const a1 = cf.A1_orchestrator_decisions;
-  const a2 = cf.A2_planning_spans;
-  const a3 = cf.A3_handoffs;
-  const a4 = cf.A4_path_metrics;
-
+  const a1 = cf.A1_orchestrator_decisions, a2 = cf.A2_planning_spans;
+  const a3 = cf.A3_handoffs, a4 = cf.A4_path_metrics;
   const a1Targets = Object.entries(a1.distribution_of_targets||{}).map(([k,v])=>
-    `<span class="tag" style="background:#243040;color:var(--txt);padding:1px 6px;border-radius:8px;font-size:11px;margin-right:4px">${esc(k)}: ${v}</span>`
-  ).join('');
-
+    `<span class="kbd">${esc(k)}: ${v}</span>`).join(' ');
   const a1Samples = (a1.samples||[]).slice(0,10).map(s=>`${s.summary || s.target}`);
   const a2Samples = (a2.samples||[]).slice(0,8).map(s=>`(${s.meta?.n_steps||'?'} step) ${s.summary}`);
   const a3Samples = (a3.samples||[]).slice(0,10).map(s=>`${s.from} → ${s.to} · ${s.summary}`);
-
   const a3EdgesRows = (a3.edges||[]).map(e=>`<tr><td>${e.from}</td><td>${e.to}</td><td class="num">${e.count}</td></tr>`).join('');
-
   const a4agg = a4.aggregate;
   const outcomesRows = Object.entries(a4agg.outcomes||{}).map(([k,v])=>`<tr><td>${k}</td><td class="num">${v}</td></tr>`).join('');
   const a4perRunRows = Object.entries(a4.per_run||{}).map(([rid,r])=>
-    `<tr><td>${rid.slice(-8)}</td><td class="num">${r.steps}</td><td class="num">${r.tool_calls}</td><td class="num">${r.handoffs}</td><td class="num">${r.duration_ms} ms</td><td>${r.outcome}</td></tr>`
-  ).join('');
-
+    `<tr><td>${rid.slice(-8)}</td><td class="num">${r.steps}</td><td class="num">${r.tool_calls}</td>
+     <td class="num">${r.handoffs}</td><td class="num">${r.duration_ms} ms</td><td>${r.outcome}</td></tr>`).join('');
   return `
-    <div class="section">
-      <h2><span class="macro-tag cf">CF</span> Evidence catalog</h2>
+    <div class="section"><h2><span class="macro-tag cf">CF</span> Evidence catalog</h2>
       <div class="cats">
         ${evidenceCard('cf', a1, {total: a1.total, per_run: a1.per_run, samples: a1Samples,
-          expl: 'Ogni scelta di instradamento dell\\'orchestratore (nodo target + motivo + alternative note al momento della decisione).',
-          extraRows: `<div class="row"><span class="k">Target</span><span class="v">${a1Targets}</span></div>`
-        })}
+          expl:'Ogni scelta di instradamento dell\\'orchestratore (nodo target, motivo, alternative note al momento della decisione).',
+          extraRows: a1Targets ? `<div class="row"><span class="k">Target</span><span class="v">${a1Targets}</span></div>` : ''})}
         ${evidenceCard('cf', a2, {total: a2.total_plans, per_run: a2.per_run, samples: a2Samples,
-          expl: 'Emissione del piano di triage e ogni sua revisione (replanning).',
-          extraRows: `<div class="row"><span class="k">Replan tot</span><span class="v"><b>${a2.total_replans}</b></span></div>`
-        })}
+          expl:'Emissione di piani e revisioni (replanning).',
+          extraRows: `<div class="row"><span class="k">Replan tot</span><span class="v"><b>${a2.total_replans}</b></span></div>`})}
         ${evidenceCard('cf', a3, {total: a3.total, per_run: a3.per_run, samples: a3Samples,
-          expl: 'Trasferimenti espliciti di controllo tra orchestratore e agenti.',
-          extraRows: a3EdgesRows ? `<div class="row"><span class="k">Edge</span><span class="v"><table><tr><th>from</th><th>to</th><th>#</th></tr>${a3EdgesRows}</table></span></div>` : ''
-        })}
+          expl:'Trasferimenti espliciti di controllo tra orchestratore e agenti.',
+          extraRows: a3EdgesRows ? `<div class="row"><span class="k">Edge</span><span class="v"><table><tr><th>from</th><th>to</th><th>#</th></tr>${a3EdgesRows}</table></span></div>` : ''})}
         ${evidenceCard('cf', a4, {
-          expl: 'Metriche derivate dalla trace: step, tool call, handoff, durata, esito.',
-          extraRows: `<div class="row"><span class="k">Runs</span><span class="v">${a4agg.n_runs}</span></div>
+          expl:'Metriche derivate dalla trace: step, tool call, handoff, durata, esito.',
+          extraRows:`<div class="row"><span class="k">Runs</span><span class="v">${a4agg.n_runs}</span></div>
                      <div class="row"><span class="k">Steps</span><span class="v">min ${a4agg.steps.min} · avg ${a4agg.steps.mean.toFixed(1)} · max ${a4agg.steps.max}</span></div>
                      <div class="row"><span class="k">Duration</span><span class="v">avg ${a4agg.duration_ms.mean.toFixed(0)} ms</span></div>
-                     <div class="row"><span class="k">Esiti</span><span class="v"><table>${outcomesRows}</table></span></div>`
-        })}
+                     <div class="row"><span class="k">Esiti</span><span class="v"><table>${outcomesRows}</table></span></div>`})}
       </div>
     </div>
-
-    <div class="section">
-      <h2><span class="macro-tag cf">CF</span> Aggregazione multi-run</h2>
-      <div class="card"><table>
+    <div class="section"><h2><span class="macro-tag cf">CF</span> Aggregazione multi-run</h2>
+      <div class="card2"><table>
         <tr><th>run</th><th>steps</th><th>tool calls</th><th>handoffs</th><th>durata</th><th>esito</th></tr>
         ${a4perRunRows}
       </table></div>
     </div>`;
 }
-
 function renderDataFlow(df) {
-  const b1 = df.B1_channel_trace;
-  const b2 = df.B2_channel_leakage_rate;
-  const b3 = df.B3_system_leakage_rate;
-  const b4 = df.B4_policy;
-
+  const b1 = df.B1_channel_trace, b2 = df.B2_channel_leakage_rate;
+  const b3 = df.B3_system_leakage_rate, b4 = df.B4_policy;
   const maxEvents = Math.max(1, ...Object.values(b1.per_channel).map(v=>v.total_events));
-
   const channelCards = Object.entries(b1.per_channel).map(([cid, ch]) => {
     const b2ch = b2.per_channel[cid];
     const pct = (ch.total_events / maxEvents) * 100;
     const piiChips = Object.entries(ch.pii_hits||{}).map(([cat,c])=>
-      `<span class="tag" style="background:${b4.allowed_set_A[cid]?.includes(cat)?'#243040':'#3d2417'};color:var(--txt);padding:1px 6px;border-radius:8px;font-size:11px;margin-right:4px">${esc(cat)}: ${c}</span>`
-    ).join('');
+      `<span class="tag" style="background:${b4.allowed_set_A[cid]?.includes(cat)?'#243040':'#3d2417'}">${esc(cat)}: ${c}</span>`).join('');
     const outOfPolicy = b2ch.runs_with_out_of_policy_hit;
     const warn = outOfPolicy>0 ? `<div class="warn">⚠ ${outOfPolicy} run con categoria fuori policy (proxy CLR = ${(b2ch.clr_proxy*100).toFixed(0)}%)</div>` : '';
-    return `
-      <div class="ch">
-        <div class="cname">${esc(ch.channel_name)}</div>
-        <div class="cnums">
-          <span><b>${ch.total_events}</b> eventi</span>
-          <span><b>${(ch.total_bytes/1024).toFixed(1)}</b> KB</span>
-        </div>
-        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
-        <div class="allowed">Allowed: ${(b2ch.allowed_set||[]).map(a=>`<span class="tag">${esc(a)}</span>`).join('') || '<i class="dim">—</i>'}</div>
-        <div style="margin-top:6px">${piiChips || '<span class="dim" style="font-size:11px">nessun match V</span>'}</div>
-        ${warn}
-      </div>`;
+    return `<div class="ch">
+      <div class="cname">${esc(ch.channel_name)}</div>
+      <div class="cnums"><span><b>${ch.total_events}</b> eventi</span><span><b>${(ch.total_bytes/1024).toFixed(1)}</b> KB</span></div>
+      <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+      <div class="allowed">Allowed: ${(b2ch.allowed_set||[]).map(a=>`<span class="tag">${esc(a)}</span>`).join('') || '<i class="dim">—</i>'}</div>
+      <div style="margin-top:6px">${piiChips || '<span class="dim" style="font-size:11px">nessun match V</span>'}</div>${warn}</div>`;
   }).join('');
-
   const samplesByCh = Object.entries(b1.per_channel).filter(([_,ch])=>ch.samples?.length).map(([cid,ch])=>`
-    <div class="ev df">
-      <div class="title">${esc(ch.channel_name)}<span class="count">${ch.samples.length}</span></div>
-      <details open><summary>Esempi di payload catturati</summary>
-      <div class="samples">${ch.samples.map(s=>esc(JSON.stringify(s,null,1))).join('\n\n')}</div>
-      </details>
-    </div>`).join('');
-
+    <div class="ev df"><div class="title">${esc(ch.channel_name)}<span class="count">${ch.samples.length}</span></div>
+    <details open><summary>Esempi di payload catturati</summary>
+    <div class="samples">${ch.samples.map(s=>esc(JSON.stringify(s,null,1))).join('\n\n')}</div></details></div>`).join('');
   const b4rows = Object.entries(b4.allowed_set_A).map(([c,arr])=>
-    `<tr><td>${c}</td><td>${arr.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`
-  ).join('');
-
+    `<tr><td>${c}</td><td>${arr.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`).join('');
   return `
-    <div class="section">
-      <h2><span class="macro-tag df">DF</span> Canali C1..C7 (AgentLeak) — copertura osservativa</h2>
-      <div class="channels">${channelCards}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag df">DF</span> Estratti dei canali</h2>
-      <div class="cats">${samplesByCh || '<div class="empty">Nessun payload da mostrare.</div>'}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag df">DF</span> B2 · Channel Leakage Rate <span class="dim">(proxy: categorie V fuori Allowed A per canale)</span></h2>
-      <div class="card"><table>
-        <tr><th>canale</th><th>runs con out-of-policy</th><th>N run</th><th>CLR (proxy)</th><th>allowed A</th></tr>
-        ${Object.entries(b2.per_channel).map(([cid,v])=>`
-          <tr><td>${esc(v.channel_name)}</td><td class="num">${v.runs_with_out_of_policy_hit}</td>
-          <td class="num">${v.n_runs}</td><td class="num">${(v.clr_proxy*100).toFixed(0)}%</td>
-          <td>${v.allowed_set.map(a=>`<span class="kbd">${esc(a)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>
-        `).join('')}
-      </table></div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag df">DF</span> B3 · System Leakage Rate (proxy) — OR sui canali ${b3.S.join(', ')}</h2>
-      <div class="card">
-        <div class="big" style="font-size:32px">${(b3.slr_proxy*100).toFixed(0)}%</div>
-        <div class="meta">runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag df">DF</span> B4 · Vault V &amp; Allowed Set A <span class="dim">(policy dichiarata)</span></h2>
-      <div class="card">
-        <div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
-        <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table>
-      </div>
-    </div>`;
+    <div class="section"><h2><span class="macro-tag df">DF</span> Canali C1..C7 (AgentLeak)</h2>
+      <div class="channels">${channelCards}</div></div>
+    <div class="section"><h2><span class="macro-tag df">DF</span> Estratti dei canali</h2>
+      <div class="cats">${samplesByCh || '<div class="empty">Nessun payload da mostrare.</div>'}</div></div>
+    <div class="section"><h2><span class="macro-tag df">DF</span> B2 · Channel Leakage Rate <span class="dim">(proxy)</span></h2>
+      <div class="card2"><table>
+        <tr><th>canale</th><th>out-of-policy</th><th>N run</th><th>CLR (proxy)</th><th>allowed A</th></tr>
+        ${Object.entries(b2.per_channel).map(([cid,v])=>`<tr><td>${esc(v.channel_name)}</td>
+         <td class="num">${v.runs_with_out_of_policy_hit}</td><td class="num">${v.n_runs}</td>
+         <td class="num">${(v.clr_proxy*100).toFixed(0)}%</td>
+         <td>${v.allowed_set.map(a=>`<span class="kbd">${esc(a)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`).join('')}
+      </table></div></div>
+    <div class="section"><h2><span class="macro-tag df">DF</span> B3 · System Leakage Rate (proxy) — S = ${b3.S.join(', ')}</h2>
+      <div class="card2"><div class="big" style="font-size:32px">${(b3.slr_proxy*100).toFixed(0)}%</div>
+      <div class="meta">runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div></div></div>
+    <div class="section"><h2><span class="macro-tag df">DF</span> B4 · Vault V &amp; Allowed Set A</h2>
+      <div class="card2"><div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
+      <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div></div>`;
 }
-
 function renderBehavioral(bh) {
-  const c1 = bh.C1_trajectories;
-  const c2 = bh.C2_state_output;
-  const c3 = bh.C3_decision_coherence;
-  const c4 = bh.C4_behavioral_variance;
-
+  const c1 = bh.C1_trajectories, c2 = bh.C2_state_output;
+  const c3 = bh.C3_decision_coherence, c4 = bh.C4_behavioral_variance;
   const trajList = (c1.trajectories||[]).map(t=>{
-    const nice = t.timeline.map(item => {
+    const nice = t.timeline.map(item=>{
       const cls = item.event_type.includes('orchestrator') ? 'orch'
                 : item.event_type.includes('tool') ? 'tool'
                 : item.event_type.includes('handoff') ? 'hand'
@@ -630,89 +838,53 @@ function renderBehavioral(bh) {
                 : item.event_type.includes('final') ? 'final' : '';
       return `<span class="tk ${cls}" title="${esc(item.summary||'')}">${esc(item.agent||'?')}·${item.event_type.slice(0,10)}</span>`;
     }).join('');
-    return `<div class="traj">
-      <div class="head"><span>run ${t.run_id.slice(-8)}</span><span>${t.n_steps} step · ${t.n_decisions} decision</span></div>
-      <div class="timeline">${nice}</div>
-    </div>`;
+    return `<div class="traj"><div class="head"><span>run ${t.run_id.slice(-8)}</span><span>${t.n_steps} step · ${t.n_decisions} decision</span></div><div class="timeline">${nice}</div></div>`;
   }).join('');
-
   const c2rows = Object.entries(c2.per_run||{}).map(([rid,r])=>
-    `<tr><td>${rid.slice(-8)}</td>
-     <td>${(r.state_key_fields.classification||'—')}</td>
-     <td>${(r.state_key_fields.priority||'—')}</td>
-     <td>${(r.state_key_fields.affected_service||'—')}</td>
+    `<tr><td>${rid.slice(-8)}</td><td>${(r.state_key_fields.classification||'—')}</td>
+     <td>${(r.state_key_fields.priority||'—')}</td><td>${(r.state_key_fields.affected_service||'—')}</td>
      <td>${(r.fields_covered_in_output||[]).length}/3</td>
-     <td class="dim">${esc((r.final_output_excerpt||'').slice(0,140))}</td></tr>`
-  ).join('');
-
-  const sigRows = (c4.trajectory_signatures||[]).map(s=>
-    `<tr><td>${s.count}×</td><td>${(s.signature||[]).join(' → ')}</td></tr>`
-  ).join('');
-  const classRows = Object.entries(c4.final_classification_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
-  const prioRows = Object.entries(c4.final_priority_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
-
+     <td class="dim">${esc((r.final_output_excerpt||'').slice(0,140))}</td></tr>`).join('');
   const c3rows = Object.entries(c3.per_run||{}).map(([rid,r])=>
     `<tr><td>${rid.slice(-8)}</td><td class="num">${r.n_decisions}</td>
-     <td class="dim">${(r.decisions||[]).map(d=>`${d.agent}:${d.meta?.label||d.summary?.split(':')[0]||''}=${d.meta?.choice||d.summary?.split(':')[1]||''}`).join(' → ')}</td></tr>`
-  ).join('');
-
+     <td class="dim">${(r.decisions||[]).map(d=>`${d.agent}:${d.meta?.label||''}=${d.meta?.choice||''}`).join(' → ')}</td></tr>`).join('');
+  const sigRows = (c4.trajectory_signatures||[]).map(s=>`<tr><td>${s.count}×</td><td>${(s.signature||[]).join(' → ')}</td></tr>`).join('');
+  const classRows = Object.entries(c4.final_classification_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
+  const prioRows = Object.entries(c4.final_priority_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
   return `
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end (span-per-tick)</h2>
-      <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output <span class="dim">(campi chiave presenti nell'output finale)</span></h2>
-      <div class="card"><table>
-        <tr><th>run</th><th>classification</th><th>priority</th><th>service</th><th>cover</th><th>output (excerpt)</th></tr>
-        ${c2rows}
-      </table></div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni successive</h2>
-      <div class="card"><table>
-        <tr><th>run</th><th>#</th><th>decisioni (chronological)</th></tr>
-        ${c3rows}
-      </table></div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su N run</h2>
+    <div class="section"><h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end</h2>
+      <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div></div>
+    <div class="section"><h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output</h2>
+      <div class="card2"><table>
+      <tr><th>run</th><th>classification</th><th>priority</th><th>service</th><th>cover</th><th>output (excerpt)</th></tr>${c2rows}
+      </table></div></div>
+    <div class="section"><h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni</h2>
+      <div class="card2"><table><tr><th>run</th><th>#</th><th>decisioni</th></tr>${c3rows}</table></div></div>
+    <div class="section"><h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su N run</h2>
       <div class="grid3">
-        <div class="card">
-          <h3>Firme di traiettoria</h3>
-          <div class="dim">Entropia norm. ${(c4.signature_entropy_norm*100).toFixed(0)}% (0 = stabile, 100 = massima varianza)</div>
-          <table>${sigRows}</table>
-        </div>
-        <div class="card">
-          <h3>Classification finale</h3>
+        <div class="card2"><h3>Firme di traiettoria</h3>
+          <div class="dim">Entropia norm. ${(c4.signature_entropy_norm*100).toFixed(0)}%</div>
+          <table>${sigRows}</table></div>
+        <div class="card2"><h3>Classification finale</h3>
           <div class="dim">Entropia norm. ${(c4.classification_entropy_norm*100).toFixed(0)}%</div>
-          <table>${classRows}</table>
-        </div>
-        <div class="card">
-          <h3>Priority finale</h3>
+          <table>${classRows}</table></div>
+        <div class="card2"><h3>Priority finale</h3>
           <div class="dim">Entropia norm. ${(c4.priority_entropy_norm*100).toFixed(0)}%</div>
-          <table>${prioRows}</table>
-        </div>
-      </div>
-    </div>`;
+          <table>${prioRows}</table></div>
+      </div></div>`;
 }
 
-// ============================================================
-// RENDER: architecture map (SVG)
-// ============================================================
+// architecture map per la vista corrente
 const ARCH_NODES = [
-  {id:'orchestrator', x:400, y:50,  w:180, h:44, label:'Orchestrator', sub:'rule-based routing', macros:['cf','bh']},
-  {id:'reader',       x:70,  y:150, w:150, h:40, label:'Reader',       sub:'incident snapshot', macros:['df']},
-  {id:'planner',      x:250, y:150, w:150, h:40, label:'Planner',      sub:'triage plan · A2', macros:['cf','bh']},
-  {id:'log_inv',      x:430, y:150, w:150, h:40, label:'Log Investig.', sub:'C3/C4 tool',       macros:['df','cf']},
-  {id:'metrics',      x:610, y:150, w:150, h:40, label:'Metrics Analyst', sub:'C3/C4 tool',    macros:['df','cf']},
-  {id:'pm',           x:70,  y:230, w:150, h:40, label:'PM Retriever', sub:'C3/C4 tool',       macros:['df','cf']},
-  {id:'classifier',   x:250, y:230, w:150, h:40, label:'Classifier',   sub:'decision points',  macros:['bh','cf']},
-  {id:'summarizer',   x:430, y:230, w:150, h:40, label:'Summarizer',   sub:'C1 · C7 artifact', macros:['df','bh']},
-  {id:'workspace',    x:610, y:230, w:150, h:40, label:'Shared Wksp',   sub:'C5 · read/write',  macros:['df']},
+  {id:'orchestrator',x:400,y:50, w:180,h:44,label:'Orchestrator',sub:'rule-based routing',macros:['cf','bh']},
+  {id:'reader',      x:70, y:150,w:150,h:40,label:'Reader',       sub:'incident snapshot',macros:['df']},
+  {id:'planner',     x:250,y:150,w:150,h:40,label:'Planner',      sub:'triage plan · A2',macros:['cf','bh']},
+  {id:'log_inv',     x:430,y:150,w:150,h:40,label:'Log Investig.',sub:'C3/C4 tool',macros:['df','cf']},
+  {id:'metrics',     x:610,y:150,w:150,h:40,label:'Metrics Analyst',sub:'C3/C4 tool',macros:['df','cf']},
+  {id:'pm',          x:70, y:230,w:150,h:40,label:'PM Retriever', sub:'C3/C4 tool',macros:['df','cf']},
+  {id:'classifier',  x:250,y:230,w:150,h:40,label:'Classifier',   sub:'decision points',macros:['bh','cf']},
+  {id:'summarizer',  x:430,y:230,w:150,h:40,label:'Summarizer',   sub:'C1 · C7 artifact',macros:['df','bh']},
+  {id:'workspace',   x:610,y:230,w:150,h:40,label:'Shared Wksp',   sub:'C5 · read/write',macros:['df']},
 ];
 const ARCH_EDGES = [
   ['orchestrator','reader'],['orchestrator','planner'],['orchestrator','log_inv'],
@@ -721,16 +893,16 @@ const ARCH_EDGES = [
   ['reader','workspace'],['planner','workspace'],['log_inv','workspace'],
   ['metrics','workspace'],['pm','workspace'],['classifier','workspace'],['summarizer','workspace'],
 ];
-
-function renderArchMap() {
-  const macroTag = MACRO_MAP[currentMacro].tag;
-  const nodes = ARCH_NODES.map(n=>{
-    const hi = n.macros.includes(macroTag) ? `hi-${macroTag}` : '';
+function renderArchMap(macroKey) {
+  const box = document.getElementById(`arch-${macroKey}`);
+  if (!box) return;
+  const tag = MACRO_LABEL[macroKey].tag;
+  const nodes = ARCH_NODES.map(n => {
+    const hi = n.macros.includes(tag) ? `hi-${tag}` : '';
     return `<g>
       <rect class="arch-node ${hi}" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8" ry="8"/>
       <text class="arch-label" x="${n.x+n.w/2}" y="${n.y+18}" text-anchor="middle">${n.label}</text>
-      <text class="arch-sub" x="${n.x+n.w/2}" y="${n.y+34}" text-anchor="middle">${n.sub}</text>
-    </g>`;
+      <text class="arch-sub" x="${n.x+n.w/2}" y="${n.y+34}" text-anchor="middle">${n.sub}</text></g>`;
   }).join('');
   const edges = ARCH_EDGES.map(([a,b])=>{
     const na = ARCH_NODES.find(n=>n.id===a);
@@ -739,24 +911,20 @@ function renderArchMap() {
     const bx = nb.x + nb.w/2, by = nb.y;
     return `<path class="arch-edge" d="M${ax},${ay} C${ax},${(ay+by)/2} ${bx},${(ay+by)/2} ${bx},${by}"/>`;
   }).join('');
-  $('#archmap').innerHTML = `
-    <svg viewBox="0 0 830 300" preserveAspectRatio="xMidYMid meet">
-      <defs><marker id="arrEdge" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-        <path d="M0,0 L6,3 L0,6 Z" fill="#3a4451"/></marker></defs>
-      ${edges}${nodes}
-    </svg>`;
+  box.innerHTML = `<svg viewBox="0 0 830 300" preserveAspectRatio="xMidYMid meet">
+    <defs><marker id="arrEdge" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#3a4451"/></marker></defs>
+    ${edges}${nodes}</svg>`;
 }
 
-// ============================================================
+// ========================================================================
 // INIT
-// ============================================================
+// ========================================================================
 async function init() {
   await loadConfig();
   await loadIncidents();
-  renderArchMap();
-  renderLive();
 }
-init().catch(e=>console.error(e));
+init().catch(e=>{ console.error(e); $('#model-label').textContent='(init errore, vedi console)'; });
 </script>
 </body>
 </html>
