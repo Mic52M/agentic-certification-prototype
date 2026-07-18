@@ -37,10 +37,16 @@ COMMANDS = [
      "Valuta le proprietà non-funzionali su una traccia: per ognuna stampa classe, "
      "verdetto (PASS/FAIL/N/A) ed evidenze. Exit code 1 se c'è almeno un FAIL."),
 
-    ("Web UI — live view",
+    ("Web UI — demo osservativa (Control/Data/Behavioral)",
      "python -m webapp.server      # poi apri http://127.0.0.1:8000",
-     "Interfaccia web locale: grafo con nodo attivo, archi orchestratore↔agente che "
-     "si accendono, stato condiviso live, stream eventi. Richiede GROQ_API_KEY."),
+     "Interfaccia web con 3 viste (Control Flow / Data Flow / Comportamentale). "
+     "Lancia esperimenti multi-run sull'incident triage. Vedi README_DEMO_METRICS.md. "
+     "Richiede GROQ_API_KEY."),
+
+    ("Smoke test infrastruttura demo (offline)",
+     "python tests/smoke_demo.py",
+     "Verifica il pipeline di strumentazione (Recorder → EventStore → Aggregator) "
+     "senza chiamate LLM. Consumo API zero."),
 
     ("Esperimento — N run sullo stesso task",
      "python experiment.py --config multi_agent --ticket T-004 --runs 20\n"
@@ -66,7 +72,9 @@ NOTES = (
     "[bold]Configurazioni[/bold]\n"
     "  single_agent  — un agente, loop ReAct esplicito (max 10 iterazioni).\n"
     "  multi_agent   — orchestratore deterministico + 3 agenti specializzati.\n\n"
-    "[bold]Modello[/bold]  Qwen 3 32B via Groq (qwen/qwen3-32b), temperature 0.0."
+    "[bold]Modello[/bold]  Default: openai/gpt-oss-120b via Groq (temperature 0.0). "
+    "Il precedente qwen/qwen3-32b è deprecato; alternative valide: qwen/qwen3.6-27b, "
+    "llama-3.3-70b-versatile. Override via MODEL=... in .env."
 )
 
 

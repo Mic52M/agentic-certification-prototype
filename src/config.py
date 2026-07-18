@@ -18,18 +18,31 @@ load_dotenv(PROJECT_ROOT / ".env")
 # --- LLM / Groq ----------------------------------------------------------
 GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
 GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-# Groq's model id for Qwen 3 32B. (The paper refers to it as "Qwen 3 32B".)
-MODEL: str = os.getenv("MODEL", "qwen/qwen3-32b")
+# Modello di default: openai/gpt-oss-120b (131K contesto, tool use nativo).
+# Il precedente qwen/qwen3-32b è stato deprecato da Groq; alternative valide
+# sono qwen/qwen3.6-27b e llama-3.3-70b-versatile. Override via env MODEL=.
+MODEL: str = os.getenv("MODEL", "openai/gpt-oss-120b")
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
 
 # Safety limit against runaway ReAct loops (single agent).
 MAX_ITERATIONS: int = int(os.getenv("MAX_ITERATIONS", "10"))
 
+# Numero di run per esperimento nella demo multi-run (default 10).
+EXPERIMENT_RUNS: int = int(os.getenv("EXPERIMENT_RUNS", "10"))
+# Delay in secondi tra run consecutive (rate limit Groq).
+EXPERIMENT_DELAY_S: float = float(os.getenv("EXPERIMENT_DELAY_S", "1.0"))
+
 # --- Paths ---------------------------------------------------------------
 DATA_DIR = PROJECT_ROOT / "data"
 TRACES_DIR = PROJECT_ROOT / "traces"
+EXPERIMENTS_DIR = PROJECT_ROOT / "experiments"
+INCIDENT_DATA_DIR = DATA_DIR / "incidents"
 KNOWLEDGE_BASE_PATH = DATA_DIR / "knowledge_base.json"
 TICKETS_PATH = DATA_DIR / "tickets.json"
+INCIDENTS_PATH = INCIDENT_DATA_DIR / "incidents.json"
+APP_LOGS_PATH = INCIDENT_DATA_DIR / "app_logs.json"
+METRICS_PATH = INCIDENT_DATA_DIR / "metrics.json"
+POSTMORTEMS_PATH = INCIDENT_DATA_DIR / "postmortems.json"
 
 
 def require_api_key() -> str:

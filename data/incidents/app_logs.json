@@ -1,0 +1,17 @@
+{
+  "mail-gateway": [
+    {"ts": "2026-06-19T07:41:32Z", "level": "INFO",  "component": "smtp-relay-1", "msg": "healthcheck ok, queue=42"},
+    {"ts": "2026-06-19T07:45:11Z", "level": "WARN",  "component": "smtp-relay-2", "msg": "connection to upstream 10.42.7.19 slow (>800ms)"},
+    {"ts": "2026-06-19T07:46:03Z", "level": "ERROR", "component": "smtp-relay-2", "msg": "SMTP 421 4.7.0 Temporary System Problem. queue growing (128 msgs)"},
+    {"ts": "2026-06-19T07:52:44Z", "level": "ERROR", "component": "smtp-relay-2", "msg": "connection timeout to smtp-relay-2 (10.42.7.19)"},
+    {"ts": "2026-06-19T08:01:12Z", "level": "WARN",  "component": "gateway-primary", "msg": "rate limit reached: 620/min, throttling"},
+    {"ts": "2026-06-19T08:07:57Z", "level": "ERROR", "component": "gateway-primary", "msg": "cluster split detected: relay-2 unreachable from primary VLAN"}
+  ],
+  "webmail": [
+    {"ts": "2026-06-20T13:58:02Z", "level": "INFO",  "component": "webmail-front", "msg": "deploy v4.11.3 completed"},
+    {"ts": "2026-06-20T14:00:19Z", "level": "WARN",  "component": "webmail-front", "msg": "auth-svc slow, retries=3, avg_latency_ms=1800"},
+    {"ts": "2026-06-20T14:02:44Z", "level": "ERROR", "component": "auth-svc",     "msg": "token exchange latency p95=2130ms, likely DB pool exhaustion"},
+    {"ts": "2026-06-20T14:03:11Z", "level": "ERROR", "component": "webmail-front", "msg": "upstream connect error to auth-svc:9443 (0.4% RPS)"},
+    {"ts": "2026-06-20T14:05:00Z", "level": "WARN",  "component": "calendar-svc",  "msg": "shared-calendar cache miss ratio spiked to 68%"}
+  ]
+}

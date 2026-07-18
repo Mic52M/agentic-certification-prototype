@@ -1,0 +1,42 @@
+[
+  {
+    "id": "PM-2025-081",
+    "title": "SMTP relay overload durante campagna marketing",
+    "tags": ["smtp", "rate-limit", "queue", "mail-gateway"],
+    "root_cause": "Rate limiting per-utente troppo aggressivo dopo il deploy 4.9. Il relay secondario è entrato in sovraccarico e la coda è cresciuta oltre soglia critica.",
+    "resolution": "Rilassato il rate limit per utenze bulk, riavviato smtp-relay-2, aggiunto autoscaling della coda.",
+    "duration_min": 47
+  },
+  {
+    "id": "PM-2025-097",
+    "title": "Auth service degradation dopo deploy webmail",
+    "tags": ["webmail", "auth", "db-pool", "latency"],
+    "root_cause": "La nuova versione della webmail aumentava di 3x le chiamate a auth-svc per il refresh del token. Il pool DB di auth-svc si esauriva.",
+    "resolution": "Rollback della webmail v4.11.x, aumento del pool DB per auth-svc.",
+    "duration_min": 68
+  },
+  {
+    "id": "PM-2025-102",
+    "title": "Network partition tra gateway-primary e smtp-relay-2",
+    "tags": ["network", "smtp", "vlan", "partition"],
+    "root_cause": "Aggiornamento firewall ha isolato la VLAN dei relay secondari.",
+    "resolution": "Rollback della policy firewall, verifica connettività L2/L3.",
+    "duration_min": 33
+  },
+  {
+    "id": "PM-2024-160",
+    "title": "Cache miss elevati su shared-calendar",
+    "tags": ["calendar", "cache", "webmail"],
+    "root_cause": "TTL della cache dei calendari condivisi troppo basso dopo tuning erroneo.",
+    "resolution": "TTL riportato al valore precedente; invalidazione cache selettiva.",
+    "duration_min": 22
+  },
+  {
+    "id": "PM-2025-118",
+    "title": "Coda mail cresce sotto carico normale",
+    "tags": ["smtp", "queue", "mail-gateway", "cpu"],
+    "root_cause": "Fuga di memoria in smtp-relay-2 dopo hotfix, saturazione CPU.",
+    "resolution": "Riavvio del pod e rollback dell'hotfix.",
+    "duration_min": 40
+  }
+]

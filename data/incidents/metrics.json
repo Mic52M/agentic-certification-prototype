@@ -1,0 +1,16 @@
+{
+  "mail-gateway": {
+    "cpu_pct": {"smtp-relay-1": 34, "smtp-relay-2": 91, "gateway-primary": 66},
+    "mem_pct": {"smtp-relay-1": 42, "smtp-relay-2": 88, "gateway-primary": 51},
+    "queue_length": {"smtp-relay-1": 12, "smtp-relay-2": 348, "gateway-primary": 82},
+    "p95_latency_ms": {"smtp-relay-1": 120, "smtp-relay-2": 2050, "gateway-primary": 480},
+    "error_rate_pct": {"smtp-relay-1": 0.1, "smtp-relay-2": 6.4, "gateway-primary": 1.8}
+  },
+  "webmail": {
+    "cpu_pct": {"webmail-front": 58, "auth-svc": 87, "calendar-svc": 44},
+    "mem_pct": {"webmail-front": 60, "auth-svc": 79, "calendar-svc": 55},
+    "db_pool_used_pct": {"auth-svc": 96, "calendar-svc": 48},
+    "p95_latency_ms": {"webmail-front": 720, "auth-svc": 2130, "calendar-svc": 900},
+    "error_rate_pct": {"webmail-front": 0.4, "auth-svc": 3.1, "calendar-svc": 0.6}
+  }
+}

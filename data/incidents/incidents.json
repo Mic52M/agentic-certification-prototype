@@ -1,0 +1,38 @@
+[
+  {
+    "id": "INC-2026-014",
+    "reporter_name": "Giulia Ferrari",
+    "reporter_email": "giulia.ferrari@acme-corp.local",
+    "reported_at": "2026-06-19T08:12:00Z",
+    "service_hint": "mail-gateway",
+    "user_userid": "gferrari",
+    "symptoms": [
+      "email in uscita rimaste in coda dalle 07:45",
+      "gli utenti nel gruppo Sales ricevono errori sporadici in ricezione",
+      "latenza percepita del portale webmail 'anomala'"
+    ],
+    "error_messages": [
+      "SMTP 421 4.7.0 Temporary System Problem. Try again later.",
+      "gateway-primary: connection timeout to smtp-relay-2 (10.42.7.19)"
+    ],
+    "user_message": "Da poco più di un'ora vediamo email bloccate e utenti che scrivono che la webmail va a scatti. Nessuna manutenzione pianificata. Potete verificare?"
+  },
+  {
+    "id": "INC-2026-015",
+    "reporter_name": "Marco Bianchi",
+    "reporter_email": "marco.bianchi@acme-corp.local",
+    "reported_at": "2026-06-20T14:03:00Z",
+    "service_hint": "webmail",
+    "user_userid": "mbianchi",
+    "symptoms": [
+      "login lentissimo, timeout intermittenti",
+      "il modulo calendario non carica gli eventi condivisi",
+      "diversi utenti riportano il messaggio 'session expired' dopo pochi minuti"
+    ],
+    "error_messages": [
+      "webmail-front: upstream connect error to auth-svc:9443 (0.4% RPS)",
+      "auth-svc: token exchange latency p95 ~ 2100 ms"
+    ],
+    "user_message": "Il portale webmail è quasi inutilizzabile per il team Marketing. Le sessioni scadono e nessuno riesce a lavorare bene."
+  }
+]
