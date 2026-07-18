@@ -785,7 +785,7 @@ function renderControlFlow(cf) {
     <div class="section"><h2><span class="macro-tag cf">CF</span> Evidence catalog</h2>
       <div class="cats">
         ${evidenceCard('cf', a1, {total: a1.total, per_run: a1.per_run, samples: a1Samples,
-          expl:'Ogni scelta di instradamento dell\\'orchestratore (nodo target, motivo, alternative note al momento della decisione).',
+          expl:"Ogni scelta di instradamento dell'orchestratore (nodo target, motivo, alternative note al momento della decisione).",
           extraRows: a1Targets ? `<div class="row"><span class="k">Target</span><span class="v">${a1Targets}</span></div>` : ''})}
         ${evidenceCard('cf', a2, {total: a2.total_plans, per_run: a2.per_run, samples: a2Samples,
           expl:'Emissione di piani e revisioni (replanning).',
