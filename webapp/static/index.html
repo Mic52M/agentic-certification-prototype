@@ -649,9 +649,11 @@ function renderFeedCard(ev) {
     const md = ev.metadata || {};
     body = `<span class="lblg">Decision:</span> ${esc(md.label||'')} = <b>${esc(md.choice||'')}</b>`;
   } else if (k === 'shared_memory_write') {
-    body = `<span class="lblm">WRITE</span> workspace/${esc((ev.metadata||{}).key||'?')} = ${summary}`;
+    // payload_summary è già del tipo "WRITE workspace/<key> = <valore>"
+    body = `<span class="lblm">${summary}</span>`;
   } else if (k === 'shared_memory_read') {
-    body = `<span class="dim">READ</span> workspace/${esc((ev.metadata||{}).key||'?')}`;
+    // payload_summary è già "READ workspace/<key>"
+    body = `<span class="dim">${summary}</span>`;
   } else if (k === 'inter_agent_message') {
     body = `✉︎ ${summary}`;
   } else if (k === 'final_output') {
@@ -662,10 +664,13 @@ function renderFeedCard(ev) {
   appendCard(cls, `${k} · ${who}${to}${ch}`, body);
 }
 function appendCard(cls, header, body) {
+  // NB: `header` e `body` vanno passati già come HTML pronto (i chiamanti
+  // devono aver chiamato esc() sui pezzi dinamici). Qui NON scappiamo:
+  // altrimenti tag come <b> e <span> compaiono come testo.
   const feed = $('#feed');
   const el = document.createElement('div');
   el.className = `card c-${cls}`;
-  el.innerHTML = `<div class="t"><span>${esc(header)}</span></div><div class="body">${body}</div>`;
+  el.innerHTML = `<div class="t"><span>${header}</span></div><div class="body">${body}</div>`;
   feed.appendChild(el);
   // scroll dolce solo se in fondo o quasi
   const nearBottom = (feed.scrollHeight - feed.scrollTop - feed.clientHeight) < 60;
