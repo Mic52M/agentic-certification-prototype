@@ -52,11 +52,14 @@ def test_infrastructure():
 
     payload = Aggregator(store).build_and_save()
 
-    # Control Flow: 3 decisioni orchestratore totali, 3 handoff, 3 piani.
+    # Control Flow: 3 decisioni orchestratore totali, 3 piani.
     cf = payload["control_flow"]
     assert cf["A1_orchestrator_decisions"]["total"] == 3, cf["A1_orchestrator_decisions"]
     assert cf["A2_planning_spans"]["total_plans"] == 3, cf["A2_planning_spans"]
-    assert cf["A3_handoffs"]["total"] == 3, cf["A3_handoffs"]
+    # A3 include (a) gli handoff espliciti e (b) le orchestrator_decision
+    # verso agenti (target != END) come proxy. Lo scripted run ha entrambi
+    # (target='planner') -> 2 per run × 3 run = 6.
+    assert cf["A3_handoffs"]["total"] == 6, cf["A3_handoffs"]
     assert cf["A4_path_metrics"]["aggregate"]["n_runs"] == 3, cf["A4_path_metrics"]
     print("ok  control_flow aggregation")
 

@@ -139,8 +139,20 @@ class Aggregator:
                             "target": ev.get("target_component"),
                             "meta": ev.get("metadata", {}),
                         })
-                    if ev.get("target_component"):
-                        a1_targets[ev["target_component"]] += 1
+                    tgt = ev.get("target_component")
+                    if tgt:
+                        a1_targets[tgt] += 1
+                    # A3: gli handoff dell'orchestratore verso i nodi agente
+                    # sono derivati dagli orchestrator_decision (target != END).
+                    if tgt and tgt not in ("__end__", "END"):
+                        n_a3 += 1
+                        if len(a3_samples) < 20:
+                            a3_samples.append({
+                                "run_id": run_id,
+                                "from": "orchestrator", "to": tgt,
+                                "summary": ev.get("payload_summary"),
+                            })
+                        a3_edges[("orchestrator", tgt)] += 1
                 elif k == EventKind.PLANNING_SPAN.value:
                     n_a2 += 1
                     if len(a2_samples) < 10:
@@ -151,6 +163,8 @@ class Aggregator:
                 elif k == EventKind.REPLANNING.value:
                     n_replan += 1
                 elif k == EventKind.HANDOFF.value:
+                    # Handoff espliciti (attualmente non emessi dall'orchestratore
+                    # standard; supportati per estensioni future o test).
                     n_a3 += 1
                     if len(a3_samples) < 20:
                         a3_samples.append({

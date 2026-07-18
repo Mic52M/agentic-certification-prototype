@@ -275,13 +275,14 @@ def build_classifier_node(llm: LLMClient, recorder: Recorder):
         hypothesis = obj.get("hypothesis_ranked") or []
 
         recorder.reasoning_step(agent, thought)
-        # Due decision_point invece di tre: (1) classification+priority
-        # come singola decisione (con priority in meta); (2) hypothesis ranking.
+        # Un unico decision_point che porta tutte le decisioni del classifier
+        # nei suoi metadati (classification è la "scelta principale", priority
+        # / confidence / hypothesis in meta).
         recorder.decision_point(agent, "classification", classification,
-                                meta={"priority": priority, "confidence": confidence})
-        recorder.decision_point(agent, "hypothesis_ranking",
-                                choice=f"{len(hypothesis)} hp",
-                                meta={"top": hypothesis[:1]})
+                                meta={"priority": priority,
+                                      "confidence": confidence,
+                                      "n_hypothesis": len(hypothesis),
+                                      "top_hypothesis": hypothesis[:1]})
         recorder.shared_memory_write(agent, "hypothesis_ranked", hypothesis)
 
         # Un solo messaggio inter-agente al summarizer.
@@ -330,11 +331,11 @@ def build_summarizer_node(llm: LLMClient, recorder: Recorder):
         resp = llm.complete(P.SUMMARIZER_SYSTEM, user_prompt)
         obj = _clean_json(resp.text)
 
-        thought = str(obj.get("thought", ""))
         actions = list(obj.get("recommended_actions") or [])
         final_text = str(obj.get("final_report") or "").strip() or resp.text.strip()
 
-        recorder.reasoning_step(agent, thought)
+        # Nessun reasoning_step separato: il final_output è già l'output
+        # sostantivo del summarizer, il thought sarebbe solo meta-narrativa.
         recorder.artifact(agent, name="triage_report", kind="markdown/plain",
                           content=final_text)
         recorder.final_output(agent, final_text)

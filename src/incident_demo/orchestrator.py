@@ -108,9 +108,10 @@ def build_orchestrator_node(recorder: Recorder):
             step=step,
             context_snapshot_keys=snap_keys,
         )
-        # A3: handoff verso il nodo scelto (parte del control flow)
-        recorder.handoff(source="orchestrator", target=str(next_node),
-                         reason=reason)
+        # Nota: NON emettiamo un handoff separato — sarebbe duplicato con la
+        # orchestrator_decision (stesso target, stesso momento). L'aggregator
+        # per A3 (handoff) usa le orchestrator_decision con target != END
+        # come proxy di handoff verso gli agenti.
         return {"next_node": next_node, "iteration": step}
 
     return orchestrator_node
