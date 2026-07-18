@@ -374,22 +374,46 @@ $('#tabs').addEventListener('click', (e) => {
 // ========================================================================
 // BOOTSTRAP
 // ========================================================================
+function showBackendBanner(msg) {
+  if (document.getElementById('backend-warn')) return;
+  const b = document.createElement('div');
+  b.id = 'backend-warn';
+  b.style.cssText = 'background:#3d1f1f;color:#ffb1b1;border-bottom:2px solid #f85149;'+
+      'padding:10px 20px;font-size:13px;line-height:1.5';
+  b.innerHTML = `<b>⚠ Backend non raggiungibile.</b> ${msg}<br>`+
+      `Serve il backend FastAPI: <code>python -m webapp.server</code>, poi apri `+
+      `<a href="http://127.0.0.1:8000" style="color:#9ec5ff">http://127.0.0.1:8000</a> in un browser (non nell'anteprima dell'IDE).`;
+  document.body.insertBefore(b, document.body.firstChild);
+}
 async function loadConfig() {
   try {
-    const cfg = await fetch('/api/config').then(r=>r.json());
+    const r = await fetch('/api/config');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const cfg = await r.json();
     modelLabel = cfg.model;
     $('#model-label').textContent = `modello: ${cfg.model} · temp ${cfg.temperature}`;
     if ($('#runs')) $('#runs').value = cfg.runs_default;
     if ($('#delay')) $('#delay').value = cfg.delay_default;
+    return true;
   } catch(err) {
-    console.error('config load failed', err);
-    $('#model-label').textContent = '(config non caricata)';
+    console.error('config load failed:', err);
+    $('#model-label').textContent = '(backend non raggiungibile — vedi banner in alto)';
+    showBackendBanner(`Errore /api/config: <code>${err.message||err}</code>.`);
+    return false;
   }
 }
 async function loadIncidents() {
+  const sel = $('#incident');
   try {
-    const list = await fetch('/api/incidents').then(r=>r.json());
-    const sel = $('#incident'); sel.innerHTML = '';
+    const r = await fetch('/api/incidents');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    sel.innerHTML = '';
+    if (!list.length) {
+      const o = document.createElement('option');
+      o.value=''; o.textContent='(nessun incident nel dataset)';
+      sel.appendChild(o); return;
+    }
     for (const i of list) {
       const o = document.createElement('option');
       o.value = i.id;
@@ -397,7 +421,9 @@ async function loadIncidents() {
       sel.appendChild(o);
     }
   } catch(err) {
-    console.error('incidents load failed', err);
+    console.error('incidents load failed:', err);
+    sel.innerHTML = '<option value="">(errore caricamento — backend offline?)</option>';
+    showBackendBanner(`Errore /api/incidents: <code>${err.message||err}</code>.`);
   }
 }
 
