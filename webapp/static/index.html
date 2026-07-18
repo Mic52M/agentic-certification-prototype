@@ -153,6 +153,26 @@
   .ev .row .k{color:var(--dim2);text-transform:uppercase;letter-spacing:.4px;font-size:10px;padding-top:1px}
   .ev .row .v{color:var(--txt)}
   .ev .expl{font-size:12px;color:var(--dim);line-height:1.45}
+  .ev .descr{margin-top:6px;background:#0f141b;border:1px solid var(--border);
+      border-left-width:3px;border-radius:6px;padding:8px 10px;font-size:11.5px;
+      line-height:1.55;color:var(--dim)}
+  .ev.cf .descr{border-left-color:var(--cf)}
+  .ev.df .descr{border-left-color:var(--df)}
+  .ev.bh .descr{border-left-color:var(--bh)}
+  .ev .descr p{margin:0 0 5px}
+  .ev .descr p:last-child{margin-bottom:0}
+  .ev .descr .lb{color:var(--txt);font-weight:600;text-transform:uppercase;
+      letter-spacing:.4px;font-size:10px;margin-right:4px}
+  /* stessa cosa per le sezioni Data Flow / Behavioural che non usano .ev */
+  .macro-descr{background:#0f141b;border:1px solid var(--border);
+      border-left-width:3px;border-radius:8px;padding:10px 14px;font-size:12px;
+      color:var(--dim);line-height:1.55;margin-bottom:10px}
+  .macro-descr.df{border-left-color:var(--df)}
+  .macro-descr.bh{border-left-color:var(--bh)}
+  .macro-descr p{margin:0 0 6px}
+  .macro-descr p:last-child{margin-bottom:0}
+  .macro-descr .lb{color:var(--txt);font-weight:600;text-transform:uppercase;
+      letter-spacing:.4px;font-size:10px;margin-right:4px}
   .ev .perrun{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
   .ev .perrun .cell{width:18px;height:18px;border-radius:3px;background:#22303f;
       font-size:10px;color:var(--txt);display:flex;align-items:center;justify-content:center}
@@ -727,17 +747,97 @@ function evidenceCard(macro, ev, opts={}) {
   const samples = opts.samples ? `<details><summary>Estratti (${(opts.samples||[]).length})</summary><div class="samples">${
     (opts.samples||[]).map(s => esc(typeof s==='string'?s:JSON.stringify(s,null,1))).join('\n\n')
   }</div></details>` : '';
+  // descrizione discorsiva (cosa/a cosa serve/come sfruttarla). Se non
+  // arriva via opts.descr, prova a cercarla in EVIDENCE_DESCRIPTIONS via
+  // opts.evidenceId.
+  const desc = opts.descr
+    || (opts.evidenceId && EVIDENCE_DESCRIPTIONS[opts.evidenceId])
+    || null;
+  const descrBlock = desc ? `
+    <div class="descr">
+      <p><span class="lb">Cosa</span>${desc.what}</p>
+      <p><span class="lb">A cosa serve</span>${desc.why}</p>
+      <p><span class="lb">Come sfruttarla</span>${desc.how}</p>
+    </div>` : '';
   return `
     <div class="ev ${macro}">
       <div class="title">${ev.name}<span class="count">${total}</span></div>
       <div class="row"><span class="k">Dove</span><span class="v">${esc(ev.where)}</span></div>
       <div class="row"><span class="k">Come</span><span class="v">${esc(ev.how)}</span></div>
       ${opts.expl ? `<div class="expl">${opts.expl}</div>` : ''}
+      ${descrBlock}
       ${perRun ? `<div class="row"><span class="k">Per run</span><span class="v"><div class="perrun">${perRun}</div></span></div>` : ''}
       ${opts.extraRows || ''}
       ${samples}
     </div>`;
 }
+
+// Descrizioni discorsive delle evidenze (basate sul documento "Sonde ed
+// evidenze per le tre macro-dimensioni"). Ogni voce ha: what (cosa
+// rappresenta), why (a cosa serve nella ricerca/architettura), how (come
+// sfruttarla in un processo di analisi/certificazione).
+const EVIDENCE_DESCRIPTIONS = {
+  A1: {
+    what: "Root span di livello alto della trace: ogni scelta di instradamento verso un agente successivo, con target, motivo e alternative note al momento della decisione.",
+    why:  "È la fonte primaria per verificare <b>role adherence</b> e conformità del control flow: il grafo di esecuzione osservato deve essere un sottografo del workflow dichiarato. Consente inoltre di misurare latenza di pipeline, branching effettivi e pattern di consenso.",
+    how:  "Su più run si costruisce la distribuzione dei percorsi realmente attivati (quali frequenti, quali quasi mai presi). In un certificato è <b>evidenza necessaria</b> (gating) per proprietà di control-flow conformance; si congela uno snapshot delle distribuzioni di path per una versione dell'architettura.",
+  },
+  A2: {
+    what: "Span emessi da un agente nelle fasi di pianificazione: piano proposto, eventuali revisioni (replanning), motivazione, selezione dei tool. Sono le <i>decision surface</i> in cui il comportamento può biforcarsi.",
+    why:  "Permettono di distinguere errori di <b>pianificazione</b> da errori di <b>esecuzione</b>: se il piano è coerente ma gli step falliscono, il problema è altrove. Misurano la stabilità del control flow (quanti replan, quanto oscilla) e forniscono tracciabilità del \"perché\" oltre al \"cosa\".",
+    how:  "In certificazione forniscono <b>evidenza corroborante</b> per robustezza del workflow (nessun ciclo di pianificazione infinita) e spiegabilità. Alimentano check strutturali (nessun tool non autorizzato appare nei piani) e valutazioni qualitative via LLM-as-judge sulla qualità dei piani.",
+  },
+  A3: {
+    what: "Eventi in cui il controllo (e potenzialmente lo stato) viene trasferito tra un agente e un altro. È il punto in cui <b>control flow e data flow si incontrano</b>: chi riceve cosa, e con quale responsabilità.",
+    why:  "L'assenza di handoff attesi segnala problemi di orchestrazione; handoff imprevisti indicano deviazioni dal design. La letteratura sulle anti-pattern mostra che molti fallimenti multi-agente emergono proprio qui (handoff troppo frequenti, informazioni incomplete, responsabilità non chiare).",
+    how:  "<b>Evidenza necessaria</b> per role adherence: senza log di handoff non si può dimostrare che la delega avvenga come previsto. Su più run si studiano pattern (lineari, a stella, a grafo denso) e la loro correlazione con successo/fallimento; check strutturali come \"nessun ciclo di handoff infinito\".",
+  },
+  A4: {
+    what: "Metriche derivate dalla trace: numero di step per run, esito (successo/fallimento/timeout/escalation), errori tool, durata complessiva, tool call. Un vettore di feature per esecuzione.",
+    why:  "Misura l'<b>efficienza del control flow</b> (quanti passi per concludere un task, quanto spesso fallisce). Permette di definire SLA e standard di reliability (completion rate, tool error rate, escalation rate), e di confrontare single-agent vs multi-agent (es. multi-agent riduce lo step medio ma aumenta la variabilità?).",
+    how:  "In uno schema di certificazione appare come <b>supporto quantitativo</b> in regime statistico: proporzione di run completati con successo con intervallo di confidenza. Snapshot congelati per una release (es. \"completion rate ≥ 0.98 con confidenza 0.95\").",
+  },
+  B1: {
+    what: "Per ogni run, il contenuto dei sette canali di comunicazione del framework AgentLeak: <b>C1</b> final output → utente, <b>C2</b> messaggi inter-agente, <b>C3</b> tool input, <b>C4</b> tool output, <b>C5</b> shared memory, <b>C6</b> reasoning trace, <b>C7</b> artefatti persistenti. Ogni evento è marcato con il proprio <code>channel_id</code>.",
+    why:  "È la base per misurare <b>dove</b> avviene il leakage: output vs canali interni. La letteratura (AgentLeak) mostra che i canali interni leakano molto più del canale di output (es. C2 ~68.8% vs C1 ~27.2% per multi-agent, con audit output-only che mancano circa il 41.7% delle violazioni).",
+    how:  "<b>Evidenza necessaria</b> per la copertura di osservazione: senza tracce per canali interni non si può replicare il tipo di analisi di AgentLeak. È il substrato su cui si calcolano CLR e SLR; conservata append-only, è riutilizzabile per nuove detection pipeline senza ripetere le run.",
+  },
+  B2: {
+    what: "Per ogni canale <code>c</code>, frazione di run in cui compare almeno un campo sensibile <b>fuori dall'Allowed Set A[c]</b>. Nella demo il rilevamento è un proxy deterministico via regex sul vocabolario V (Vault).",
+    why:  "Quantifica la <b>vulnerabilità di ciascun canale</b>. Rende visibile in modo oggettivo che gli audit output-only non bastano: internamente la leakage complessiva può superare 60–70% mentre l'output finale appare pulito.",
+    how:  "Metrica quantitativa principale per proprietà di <b>non-leakage</b> per canale. Può alimentare regole del tipo \"il sistema è certificabile solo se CLR(C2) e CLR(C5) sono sotto soglia τ su un paniere di scenari\". Monitorata per rilevare regressioni dopo modifiche a prompt/orchestrazione/modelli/tool.",
+  },
+  B3: {
+    what: "<b>System Leakage Rate</b>: probabilità che almeno uno dei canali contenuti in un set S (di default {C1, C2, C5}) leaki. È l'OR delle leakage per canale, letta come rischio composito.",
+    why:  "Riflette il <b>rischio complessivo</b> per l'utente e per il sistema: non basta un output finale sicuro, importa se in qualche parte della pipeline i dati vengono esposti. È la metrica che mostra più chiaramente il rischio aggiuntivo introdotto dalla collaborazione multi-agente.",
+    how:  "Nel certificato può comparire come metrica high-level di privacy risk (es. \"SLR(S) ≤ 0.3 con confidenza 0.95\"). Permette di discutere trasparentemente il trade-off tra potenza del sistema multi-agente e rischio di leakage composta.",
+  },
+  B4: {
+    what: "Definizione formale della policy: <b>Vault V</b> = insieme dei campi sensibili gestiti dall'architettura; <b>Allowed Set A[c]</b> = sottoinsieme di V ammesso per il canale c. Nella demo V ha 5 categorie (email, phone, reporter, IP, userid) e A è un mapping dichiarato.",
+    why:  "Rende esplicita la nozione di <b>data minimization</b>: quanta informazione sensibile è davvero necessaria su un canale? Consente di motivare perché un certo leakage è inaccettabile su C2 ma tollerato su C3. Senza V e A la nozione stessa di \"leak\" non è ben definita.",
+    how:  "<b>Evidenza contestuale</b> essenziale per interpretare CLR e SLR. Permette di dimostrare che la misura di privacy non è arbitraria ma <i>grounded</i> su policy chiare, versionabili (V/A@timestamp) per audit retrospettivi.",
+  },
+  C1: {
+    what: "Trace end-to-end della run: root span per la richiesta e sotto-span gerarchici per ogni LLM call, tool call, memory read/write, handoff, branch. La struttura ad albero riflette chi ha chiamato chi (causalità).",
+    why:  "È la base per capire \"cosa è successo\" in una traiettoria <b>non deterministica</b>: i log lineari non bastano. Collega ogni decisione all'input e allo stato visti in quel punto. È il formato richiesto da molte piattaforme di eval che fanno <b>trajectory evaluation</b> invece che output-only.",
+    how:  "<b>Evidenza necessaria</b> per <i>qualsiasi</i> proprietà comportamentale: senza trace gerarchiche non si può definire né misurare interactional consistency in modo serio. Costituisce il substrato su cui si applicano i check C2–C4.",
+  },
+  C2: {
+    what: "Confronto tra lo <b>stato finale consolidato</b> del sistema (classification, priority, affected_service) e il <b>contenuto del final answer</b>. Verifica di presenza lessicale dei campi chiave nel testo dell'output; in versione full include valutazione semantica via LLM-as-judge.",
+    why:  "Misura se il sistema <b>rispetta</b> le decisioni prese e lo stato consolidato: un output che contraddice lo stato è sintomo di incoerenza interna. Proxy diretto di qualità percepita dall'utente e di correttezza funzionale.",
+    how:  "In <b>regime statistico</b>: proporzione di run in cui non si riscontrano contraddizioni hard tra stato e output, con intervallo di confidenza (statistical model checking). Può comparire direttamente nel certificato come \"State-output consistency ≥ τ\" su scenari di riferimento.",
+  },
+  C3: {
+    what: "Sequenza cronologica dei <b>decision point</b> emessi dagli agenti lungo la traiettoria (triage iniziale, decisione dopo tool call, decisione dopo handoff, decisione finale). Analizza intention-behavior consistency su uno stesso oggetto.",
+    why:  "Rileva <b>oscillazioni decisionali</b> e contraddizioni non giustificate tra agenti (es. un agente marca \"alto rischio\", un altro annulla senza motivazione). Indicatore di affidabilità della collaborazione multi-agente.",
+    how:  "<b>Evidenza corroborante</b> per proprietà di interactional consistency: anche se lo stato finale e l'output sono coerenti, il sistema potrebbe aver preso strade incoerenti nel percorso. In regime statistico fornisce stime tipo \"probabilità di traiettoria senza contraddizioni ≥ τ\".",
+  },
+  C4: {
+    what: "Distribuzioni delle firme di traiettoria (sequenza di agenti attivati) e dei campi finali (classification, priority) su N ripetizioni dello stesso ticket. <b>Entropia normalizzata</b> come proxy di stabilità: 0 = distribuzione stabile, 100 = massima varianza.",
+    why:  "Permette di <b>distinguere errori sistematici da errori occasionali</b>. Consente di ragionare in termini di \"probabilità di comportarsi in un certo modo\" invece che di aspettativa deterministica.",
+    how:  "In certificazione entra in gioco quando si definiscono proprietà del tipo \"il sistema si comporta in modo coerente con probabilità ≥ c\": la varianza osservata determina quanto è realistico fissare c. Collega direttamente le metriche empiriche al <b>regime statistico</b> di verifica.",
+  },
+};
 
 function renderMacroView(macroKey) {
   if (!currentExperiment) return;
@@ -789,17 +889,13 @@ function renderControlFlow(cf) {
   return `
     <div class="section"><h2><span class="macro-tag cf">CF</span> Evidence catalog</h2>
       <div class="cats">
-        ${evidenceCard('cf', a1, {total: a1.total, per_run: a1.per_run, samples: a1Samples,
-          expl:"Ogni scelta di instradamento dell'orchestratore (nodo target, motivo, alternative note al momento della decisione).",
+        ${evidenceCard('cf', a1, {evidenceId:'A1', total: a1.total, per_run: a1.per_run, samples: a1Samples,
           extraRows: a1Targets ? `<div class="row"><span class="k">Target</span><span class="v">${a1Targets}</span></div>` : ''})}
-        ${evidenceCard('cf', a2, {total: a2.total_plans, per_run: a2.per_run, samples: a2Samples,
-          expl:'Emissione di piani e revisioni (replanning).',
+        ${evidenceCard('cf', a2, {evidenceId:'A2', total: a2.total_plans, per_run: a2.per_run, samples: a2Samples,
           extraRows: `<div class="row"><span class="k">Replan tot</span><span class="v"><b>${a2.total_replans}</b></span></div>`})}
-        ${evidenceCard('cf', a3, {total: a3.total, per_run: a3.per_run, samples: a3Samples,
-          expl:'Trasferimenti espliciti di controllo tra orchestratore e agenti.',
+        ${evidenceCard('cf', a3, {evidenceId:'A3', total: a3.total, per_run: a3.per_run, samples: a3Samples,
           extraRows: a3EdgesRows ? `<div class="row"><span class="k">Edge</span><span class="v"><table><tr><th>from</th><th>to</th><th>#</th></tr>${a3EdgesRows}</table></span></div>` : ''})}
-        ${evidenceCard('cf', a4, {
-          expl:'Metriche derivate dalla trace: step, tool call, handoff, durata, esito.',
+        ${evidenceCard('cf', a4, {evidenceId:'A4',
           extraRows:`<div class="row"><span class="k">Runs</span><span class="v">${a4agg.n_runs}</span></div>
                      <div class="row"><span class="k">Steps</span><span class="v">min ${a4agg.steps.min} · avg ${a4agg.steps.mean.toFixed(1)} · max ${a4agg.steps.max}</span></div>
                      <div class="row"><span class="k">Duration</span><span class="v">avg ${a4agg.duration_ms.mean.toFixed(0)} ms</span></div>
@@ -837,12 +933,22 @@ function renderDataFlow(df) {
     <div class="samples">${ch.samples.map(s=>esc(JSON.stringify(s,null,1))).join('\n\n')}</div></details></div>`).join('');
   const b4rows = Object.entries(b4.allowed_set_A).map(([c,arr])=>
     `<tr><td>${c}</td><td>${arr.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`).join('');
+  const dfBlock = (id) => {
+    const d = EVIDENCE_DESCRIPTIONS[id];
+    if (!d) return '';
+    return `<div class="macro-descr df">
+      <p><span class="lb">Cosa</span>${d.what}</p>
+      <p><span class="lb">A cosa serve</span>${d.why}</p>
+      <p><span class="lb">Come sfruttarla</span>${d.how}</p></div>`;
+  };
   return `
-    <div class="section"><h2><span class="macro-tag df">DF</span> Canali C1..C7 (AgentLeak)</h2>
+    <div class="section"><h2><span class="macro-tag df">DF</span> B1 · Canali C1..C7 (AgentLeak)</h2>
+      ${dfBlock('B1')}
       <div class="channels">${channelCards}</div></div>
     <div class="section"><h2><span class="macro-tag df">DF</span> Estratti dei canali</h2>
       <div class="cats">${samplesByCh || '<div class="empty">Nessun payload da mostrare.</div>'}</div></div>
     <div class="section"><h2><span class="macro-tag df">DF</span> B2 · Channel Leakage Rate <span class="dim">(proxy)</span></h2>
+      ${dfBlock('B2')}
       <div class="card2"><table>
         <tr><th>canale</th><th>out-of-policy</th><th>N run</th><th>CLR (proxy)</th><th>allowed A</th></tr>
         ${Object.entries(b2.per_channel).map(([cid,v])=>`<tr><td>${esc(v.channel_name)}</td>
@@ -851,9 +957,11 @@ function renderDataFlow(df) {
          <td>${v.allowed_set.map(a=>`<span class="kbd">${esc(a)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`).join('')}
       </table></div></div>
     <div class="section"><h2><span class="macro-tag df">DF</span> B3 · System Leakage Rate (proxy) — S = ${b3.S.join(', ')}</h2>
+      ${dfBlock('B3')}
       <div class="card2"><div class="big" style="font-size:32px">${(b3.slr_proxy*100).toFixed(0)}%</div>
       <div class="meta">runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div></div></div>
     <div class="section"><h2><span class="macro-tag df">DF</span> B4 · Vault V &amp; Allowed Set A</h2>
+      ${dfBlock('B4')}
       <div class="card2"><div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
       <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div></div>`;
 }
@@ -882,16 +990,28 @@ function renderBehavioral(bh) {
   const sigRows = (c4.trajectory_signatures||[]).map(s=>`<tr><td>${s.count}×</td><td>${(s.signature||[]).join(' → ')}</td></tr>`).join('');
   const classRows = Object.entries(c4.final_classification_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
   const prioRows = Object.entries(c4.final_priority_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
+  const bhBlock = (id) => {
+    const d = EVIDENCE_DESCRIPTIONS[id];
+    if (!d) return '';
+    return `<div class="macro-descr bh">
+      <p><span class="lb">Cosa</span>${d.what}</p>
+      <p><span class="lb">A cosa serve</span>${d.why}</p>
+      <p><span class="lb">Come sfruttarla</span>${d.how}</p></div>`;
+  };
   return `
     <div class="section"><h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end</h2>
+      ${bhBlock('C1')}
       <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div></div>
     <div class="section"><h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output</h2>
+      ${bhBlock('C2')}
       <div class="card2"><table>
       <tr><th>run</th><th>classification</th><th>priority</th><th>service</th><th>cover</th><th>output (excerpt)</th></tr>${c2rows}
       </table></div></div>
     <div class="section"><h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni</h2>
+      ${bhBlock('C3')}
       <div class="card2"><table><tr><th>run</th><th>#</th><th>decisioni</th></tr>${c3rows}</table></div></div>
     <div class="section"><h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su N run</h2>
+      ${bhBlock('C4')}
       <div class="grid3">
         <div class="card2"><h3>Firme di traiettoria</h3>
           <div class="dim">Entropia norm. ${(c4.signature_entropy_norm*100).toFixed(0)}%</div>
