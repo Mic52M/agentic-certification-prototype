@@ -197,14 +197,102 @@
   .ch .warn{color:var(--yellow);font-size:11px;margin-top:4px}
   .kbd{background:#202832;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
 
-  .trajs{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:6px}
-  .traj{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
-  .traj .head{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:6px}
-  .traj .timeline{display:flex;gap:4px;flex-wrap:wrap;font-size:11px}
-  .traj .tk{padding:2px 7px;border-radius:8px;background:#22303f;color:var(--txt);border:1px solid var(--border)}
-  .traj .tk.orch{background:#254057} .traj .tk.tool{background:#3d3020;color:var(--yellow)}
-  .traj .tk.hand{background:#3f2c47;color:var(--pink)} .traj .tk.dec{background:#25443b;color:var(--green)}
-  .traj .tk.final{background:#293d24;color:var(--green)}
+  /* === Behavioural: viste più leggibili per la demo === */
+  .trajs{display:flex;flex-direction:column;gap:12px}
+  .traj{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .traj .head{display:flex;justify-content:space-between;align-items:center;
+      font-size:13px;color:var(--txt);margin-bottom:10px;gap:14px}
+  .traj .head .rid{font-family:'SF Mono',monospace;color:var(--dim);font-size:12px}
+  .traj .head .mets{display:flex;gap:14px;font-size:12px;color:var(--dim)}
+  .traj .head .mets b{color:var(--txt);margin-right:3px}
+  .traj .milestones{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+  .traj .ms{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;
+      border-radius:16px;background:#1c2634;border:1px solid var(--border);font-size:12px}
+  .traj .ms .agent{color:var(--txt);font-weight:600}
+  .traj .ms .lbl{color:var(--dim);font-size:11px}
+  .traj .ms .val{color:var(--bh);font-weight:600}
+  .traj .ms.reader     {border-color:#3a4d5e;background:#152030}
+  .traj .ms.planner    {border-color:#5a4a20;background:#231c0f;color:var(--yellow)}
+  .traj .ms.log_investigator,.traj .ms.metrics_analyst,.traj .ms.postmortem_retriever{
+      border-color:#204d54;background:#0f2226}
+  .traj .ms.classifier {border-color:#2f5a2e;background:#152318}
+  .traj .ms.summarizer {border-color:#3c5124;background:#1a2312;color:var(--green)}
+  .traj .arrow{color:var(--dim2);font-size:11px}
+  .traj details{margin-top:10px}
+  .traj summary{color:var(--dim);font-size:12px;cursor:pointer}
+  .traj summary:hover{color:var(--txt)}
+  .traj .rawtl{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;font-size:10.5px;
+      font-family:'SF Mono',monospace;max-height:180px;overflow:auto;padding:6px;
+      background:#0f141b;border:1px solid var(--border);border-radius:6px}
+  .traj .rawtl .tk{padding:2px 6px;border-radius:5px;background:#22303f;color:var(--dim);border:1px solid var(--border)}
+  .traj .rawtl .tk.orch{background:#254057;color:var(--cf)}
+  .traj .rawtl .tk.tool{background:#3d3020;color:var(--yellow)}
+  .traj .rawtl .tk.dec{background:#25443b;color:var(--green)}
+  .traj .rawtl .tk.final{background:#293d24;color:var(--green)}
+  .traj .rawtl .tk.mem{background:#242430;color:var(--dim)}
+  .traj .rawtl .tk.msg{background:#3a2440;color:var(--pink)}
+
+  /* C2 state↔output panel */
+  .so-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;margin-bottom:10px}
+  .so-panel .head{display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:8px;font-size:13px}
+  .so-panel .head .rid{font-family:'SF Mono',monospace;color:var(--dim);font-size:12px}
+  .so-cov{padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+  .so-cov.ok{background:#152318;color:var(--green);border:1px solid var(--green)}
+  .so-cov.mid{background:#2e2510;color:var(--yellow);border:1px solid var(--yellow)}
+  .so-cov.no{background:#2d0f0f;color:var(--red);border:1px solid var(--red)}
+  .so-panel .cols{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start}
+  .so-panel .state-chips{display:flex;flex-direction:column;gap:6px}
+  .so-chip{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;
+      background:#1a2029;border:1px solid var(--border);font-size:12px}
+  .so-chip .field{color:var(--dim);text-transform:uppercase;letter-spacing:.4px;font-size:10px;min-width:82px}
+  .so-chip .val{color:var(--txt);font-weight:600;flex:1}
+  .so-chip .flag{font-size:11px;padding:1px 7px;border-radius:8px}
+  .so-chip .flag.in{background:#152318;color:var(--green);border:1px solid var(--green)}
+  .so-chip .flag.out{background:#2d0f0f;color:var(--red);border:1px solid var(--red)}
+  .so-chip .flag.na{color:var(--dim2)}
+  .so-panel .outbox{background:#0f141b;border:1px solid var(--border);border-radius:8px;
+      padding:10px 12px;font-size:12px;line-height:1.55;color:var(--txt);max-height:180px;overflow:auto}
+  .so-panel .outbox mark{background:#3a5a1e;color:var(--txt);padding:0 3px;border-radius:3px}
+
+  /* C3 decisions timeline */
+  .dec-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;margin-bottom:10px}
+  .dec-panel .head{display:flex;justify-content:space-between;font-size:13px;
+      margin-bottom:8px;color:var(--dim)}
+  .dec-panel .head .rid{font-family:'SF Mono',monospace}
+  .dec-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .dec-node{padding:6px 10px;border-radius:10px;background:#1a2029;border:1px solid var(--border);
+      font-size:12px;display:inline-flex;flex-direction:column;gap:2px;min-width:130px}
+  .dec-node .who{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+  .dec-node .lbl{color:var(--bh);font-weight:600;font-size:11px}
+  .dec-node .ch{color:var(--txt);font-size:12px}
+
+  /* C4 stability cards */
+  .stab-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media (max-width:1100px){.stab-grid{grid-template-columns:1fr}}
+  .stab-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .stab-card h3{margin:0 0 4px;font-size:12px;color:var(--dim);
+      text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  .stab-card .subtitle{font-size:11px;color:var(--dim2);margin-bottom:10px;line-height:1.45}
+  .stab-gauge{margin:8px 0 12px}
+  .stab-gauge .val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stab-gauge .val.low{color:var(--green)} .stab-gauge .val.mid{color:var(--yellow)}
+  .stab-gauge .val.hi{color:var(--orange)}
+  .stab-gauge .label{font-size:11px;color:var(--dim);margin-bottom:4px}
+  .stab-gauge .bar{height:8px;border-radius:4px;background:#0a0e13;overflow:hidden}
+  .stab-gauge .bar .fill{height:100%;background:var(--green);transition:width .3s}
+  .stab-gauge .bar .fill.low{background:var(--green)}
+  .stab-gauge .bar .fill.mid{background:var(--yellow)}
+  .stab-gauge .bar .fill.hi{background:var(--orange)}
+  .stab-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .stab-row{display:flex;align-items:center;gap:10px;font-size:12px}
+  .stab-row .count{min-width:36px;font-weight:600;color:var(--bh);font-variant-numeric:tabular-nums}
+  .stab-row .barr{flex:1;height:6px;background:#0a0e13;border-radius:3px;overflow:hidden}
+  .stab-row .barr .fill{height:100%;background:var(--bh)}
+  .stab-row .name{color:var(--txt);font-family:'SF Mono',monospace;font-size:11px;white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis;max-width:100%}
 
   .live{background:var(--panel);border:1px solid var(--border);border-radius:10px;
       max-height:380px;overflow:auto;padding:8px 12px;font-size:12px;color:var(--dim);
@@ -968,28 +1056,166 @@ function renderDataFlow(df) {
 function renderBehavioral(bh) {
   const c1 = bh.C1_trajectories, c2 = bh.C2_state_output;
   const c3 = bh.C3_decision_coherence, c4 = bh.C4_behavioral_variance;
-  const trajList = (c1.trajectories||[]).map(t=>{
-    const nice = t.timeline.map(item=>{
-      const cls = item.event_type.includes('orchestrator') ? 'orch'
-                : item.event_type.includes('tool') ? 'tool'
-                : item.event_type.includes('handoff') ? 'hand'
-                : item.event_type.includes('decision') ? 'dec'
-                : item.event_type.includes('final') ? 'final' : '';
-      return `<span class="tk ${cls}" title="${esc(item.summary||'')}">${esc(item.agent||'?')}·${item.event_type.slice(0,10)}</span>`;
+
+  // ---------- C1: traiettoria come milestones leggibili -------------------
+  // Da ogni timeline estraiamo i "momenti salienti": il decision_point del
+  // planner (servizio), quali investigatori sono stati usati, la
+  // classification del classifier, l'output finale. La timeline grezza
+  // resta accessibile in un <details>.
+  function extractMilestones(timeline) {
+    const ms = [];
+    let seenAgents = new Set();
+    for (const it of timeline) {
+      const agent = it.agent || '?';
+      const k = it.event_type;
+      if (agent === 'planner' && k === 'decision_point' && it.summary && !seenAgents.has('planner_dp')) {
+        // "affected_service: mail-gateway"
+        seenAgents.add('planner_dp');
+        const m = /:\s*(.+)$/.exec(it.summary || '');
+        ms.push({agent:'planner', lbl:'servizio', val: (m?m[1]:it.summary).trim()});
+      } else if ((agent==='log_investigator' || agent==='metrics_analyst' || agent==='postmortem_retriever')
+                 && k==='decision_point' && !seenAgents.has(agent+'_dp')) {
+        seenAgents.add(agent+'_dp');
+        const m = /:\s*(.+)$/.exec(it.summary || '');
+        const short = agent==='log_investigator' ? 'log' : agent==='metrics_analyst' ? 'metriche' : 'postmortem';
+        ms.push({agent, lbl:short, val: (m?m[1]:it.summary||'—').trim()});
+      } else if (agent==='classifier' && k==='decision_point' && !seenAgents.has('classifier_dp')) {
+        seenAgents.add('classifier_dp');
+        const m = /:\s*(.+)$/.exec(it.summary || '');
+        ms.push({agent:'classifier', lbl:'class', val: (m?m[1]:it.summary||'—').trim()});
+      } else if (agent==='summarizer' && k==='final_output' && !seenAgents.has('summarizer_out')) {
+        seenAgents.add('summarizer_out');
+        ms.push({agent:'summarizer', lbl:'output', val:'report prodotto'});
+      }
+    }
+    return ms;
+  }
+  function eventKindClass(k) {
+    if (k.includes('orchestrator')) return 'orch';
+    if (k.includes('tool')) return 'tool';
+    if (k === 'decision_point') return 'dec';
+    if (k === 'final_output') return 'final';
+    if (k.includes('memory')) return 'mem';
+    if (k === 'inter_agent_message') return 'msg';
+    return '';
+  }
+
+  const trajList = (c1.trajectories||[]).map((t,i) => {
+    const milestones = extractMilestones(t.timeline);
+    const msHtml = milestones.map((m,idx) => {
+      const arrow = idx>0 ? '<span class="arrow">→</span>' : '';
+      return `${arrow}<span class="ms ${esc(m.agent)}">
+        <span class="agent">${esc(m.agent)}</span>
+        <span class="lbl">${esc(m.lbl)}:</span>
+        <span class="val">${esc(m.val)}</span></span>`;
     }).join('');
-    return `<div class="traj"><div class="head"><span>run ${t.run_id.slice(-8)}</span><span>${t.n_steps} step · ${t.n_decisions} decision</span></div><div class="timeline">${nice}</div></div>`;
+    const rawTl = t.timeline.map(it => {
+      const cls = eventKindClass(it.event_type||'');
+      return `<span class="tk ${cls}" title="${esc(it.summary||'')}">${esc(it.agent||'?')} · ${esc(it.event_type||'')}</span>`;
+    }).join('');
+    return `<div class="traj">
+      <div class="head">
+        <div><b>Run #${i+1}</b> <span class="rid">${t.run_id.slice(-8)}</span></div>
+        <div class="mets"><span><b>${t.n_steps}</b> step</span><span><b>${t.n_decisions}</b> decisioni</span></div>
+      </div>
+      <div class="milestones">${msHtml || '<span class="dim">Nessun momento saliente rilevato.</span>'}</div>
+      <details><summary>Timeline completa (${t.timeline.length} eventi)</summary>
+        <div class="rawtl">${rawTl}</div>
+      </details>
+    </div>`;
   }).join('');
-  const c2rows = Object.entries(c2.per_run||{}).map(([rid,r])=>
-    `<tr><td>${rid.slice(-8)}</td><td>${(r.state_key_fields.classification||'—')}</td>
-     <td>${(r.state_key_fields.priority||'—')}</td><td>${(r.state_key_fields.affected_service||'—')}</td>
-     <td>${(r.fields_covered_in_output||[]).length}/3</td>
-     <td class="dim">${esc((r.final_output_excerpt||'').slice(0,140))}</td></tr>`).join('');
-  const c3rows = Object.entries(c3.per_run||{}).map(([rid,r])=>
-    `<tr><td>${rid.slice(-8)}</td><td class="num">${r.n_decisions}</td>
-     <td class="dim">${(r.decisions||[]).map(d=>`${d.agent}:${d.meta?.label||''}=${d.meta?.choice||''}`).join(' → ')}</td></tr>`).join('');
-  const sigRows = (c4.trajectory_signatures||[]).map(s=>`<tr><td>${s.count}×</td><td>${(s.signature||[]).join(' → ')}</td></tr>`).join('');
-  const classRows = Object.entries(c4.final_classification_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
-  const prioRows = Object.entries(c4.final_priority_dist||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v}</td></tr>`).join('');
+
+  // ---------- C2: state <-> output con chip verdi/rossi + highlight -------
+  const soPanels = Object.entries(c2.per_run||{}).map(([rid,r],i)=>{
+    const fields = r.state_key_fields || {};
+    const covered = new Set(r.fields_covered_in_output || []);
+    const missing = new Set(r.fields_missing_from_output || []);
+    const total = ['classification','priority','affected_service'].filter(f => fields[f]).length;
+    const nCov = covered.size;
+    const covCls = total===0 ? 'no' : (nCov===total ? 'ok' : (nCov>0 ? 'mid' : 'no'));
+    const chips = ['classification','priority','affected_service'].map(f => {
+      const v = fields[f];
+      const state = !v ? 'na' : covered.has(f) ? 'in' : missing.has(f) ? 'out' : 'na';
+      const stateLabel = state==='in' ? 'nell\'output ✓' : state==='out' ? 'assente ✗' : 'n/a';
+      return `<div class="so-chip"><span class="field">${f}</span>
+        <span class="val">${esc(v || '—')}</span>
+        <span class="flag ${state}">${stateLabel}</span></div>`;
+    }).join('');
+    // highlight nel testo dell'output i valori dei campi che vi appaiono
+    let outText = esc(r.final_output_excerpt || '');
+    for (const f of covered) {
+      const v = fields[f];
+      if (!v) continue;
+      const re = new RegExp('(' + String(v).replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+      outText = outText.replace(re, '<mark>$1</mark>');
+    }
+    return `<div class="so-panel">
+      <div class="head">
+        <div><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span></div>
+        <span class="so-cov ${covCls}">${nCov}/${total} campi coperti</span>
+      </div>
+      <div class="cols">
+        <div class="state-chips">${chips}</div>
+        <div class="outbox">${outText || '<span class="dim">nessun output</span>'}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ---------- C3: sequenza decisioni come "flusso" leggibile --------------
+  const decPanels = Object.entries(c3.per_run||{}).map(([rid,r],i)=>{
+    const flow = (r.decisions||[]).map((d,idx)=>{
+      const arrow = idx>0 ? '<span class="arrow">→</span>' : '';
+      return `${arrow}<div class="dec-node">
+        <span class="who">${esc(d.agent||'?')}</span>
+        <span class="lbl">${esc((d.meta && d.meta.label) || 'decision')}</span>
+        <span class="ch">${esc((d.meta && d.meta.choice) || (d.summary||'').split(':')[1] || '—')}</span>
+      </div>`;
+    }).join('');
+    return `<div class="dec-panel">
+      <div class="head"><span><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span></span>
+      <span>${r.n_decisions} decisioni</span></div>
+      <div class="dec-flow">${flow || '<span class="dim">Nessuna decisione registrata.</span>'}</div>
+    </div>`;
+  }).join('');
+
+  // ---------- C4: stabilità con barre visive e interpretazione ------------
+  function entropyBand(ent) {
+    if (ent < 0.15) return {cls:'low', label:'stabile'};
+    if (ent < 0.5)  return {cls:'mid', label:'moderatamente variabile'};
+    return {cls:'hi', label:'alta variabilità'};
+  }
+  function distList(dist) {
+    const entries = Object.entries(dist||{}).sort((a,b)=>b[1]-a[1]);
+    if (!entries.length) return '<div class="dim" style="font-size:12px">Nessun dato.</div>';
+    const max = Math.max(...entries.map(e=>e[1]));
+    return `<div class="stab-list">${entries.map(([k,v])=>{
+      const pct = (v/max)*100;
+      return `<div class="stab-row"><span class="count">${v}×</span>
+        <span class="barr"><span class="fill" style="width:${pct}%"></span></span>
+        <span class="name" title="${esc(k)}">${esc(k)}</span></div>`;
+    }).join('')}</div>`;
+  }
+  function sigList(sigs) {
+    if (!sigs || !sigs.length) return '<div class="dim" style="font-size:12px">Nessun dato.</div>';
+    const max = Math.max(...sigs.map(s=>s.count));
+    return `<div class="stab-list">${sigs.map(s=>{
+      const pct = (s.count/max)*100;
+      const name = (s.signature||[]).join(' → ');
+      return `<div class="stab-row"><span class="count">${s.count}×</span>
+        <span class="barr"><span class="fill" style="width:${pct}%"></span></span>
+        <span class="name" title="${esc(name)}">${esc(name)}</span></div>`;
+    }).join('')}</div>`;
+  }
+  function gauge(ent, label) {
+    const b = entropyBand(ent);
+    const pct = Math.min(100, Math.max(0, ent*100));
+    return `<div class="stab-gauge">
+      <div class="label">${label}</div>
+      <div class="val ${b.cls}">${pct.toFixed(0)}% <span style="font-size:12px;color:var(--dim);font-weight:400">· ${b.label}</span></div>
+      <div class="bar"><div class="fill ${b.cls}" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
   const bhBlock = (id) => {
     const d = EVIDENCE_DESCRIPTIONS[id];
     if (!d) return '';
@@ -999,30 +1225,48 @@ function renderBehavioral(bh) {
       <p><span class="lb">Come sfruttarla</span>${d.how}</p></div>`;
   };
   return `
-    <div class="section"><h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end</h2>
+    <div class="section">
+      <h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end — traiettoria per run</h2>
       ${bhBlock('C1')}
-      <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div></div>
-    <div class="section"><h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output</h2>
+      <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output</h2>
       ${bhBlock('C2')}
-      <div class="card2"><table>
-      <tr><th>run</th><th>classification</th><th>priority</th><th>service</th><th>cover</th><th>output (excerpt)</th></tr>${c2rows}
-      </table></div></div>
-    <div class="section"><h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni</h2>
+      <div>${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni</h2>
       ${bhBlock('C3')}
-      <div class="card2"><table><tr><th>run</th><th>#</th><th>decisioni</th></tr>${c3rows}</table></div></div>
-    <div class="section"><h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su N run</h2>
+      <div>${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su ${c4.n_runs || '—'} run</h2>
       ${bhBlock('C4')}
-      <div class="grid3">
-        <div class="card2"><h3>Firme di traiettoria</h3>
-          <div class="dim">Entropia norm. ${(c4.signature_entropy_norm*100).toFixed(0)}%</div>
-          <table>${sigRows}</table></div>
-        <div class="card2"><h3>Classification finale</h3>
-          <div class="dim">Entropia norm. ${(c4.classification_entropy_norm*100).toFixed(0)}%</div>
-          <table>${classRows}</table></div>
-        <div class="card2"><h3>Priority finale</h3>
-          <div class="dim">Entropia norm. ${(c4.priority_entropy_norm*100).toFixed(0)}%</div>
-          <table>${prioRows}</table></div>
-      </div></div>`;
+      <div class="stab-grid">
+        <div class="stab-card">
+          <h3>Firme di traiettoria</h3>
+          <div class="subtitle">Sequenza degli agenti attivati per run. Se sempre la stessa → routing molto stabile.</div>
+          ${gauge(c4.signature_entropy_norm, 'Entropia normalizzata')}
+          ${sigList(c4.trajectory_signatures)}
+        </div>
+        <div class="stab-card">
+          <h3>Classification finale</h3>
+          <div class="subtitle">Distribuzione della classe assegnata dal Classifier sullo stesso ticket.</div>
+          ${gauge(c4.classification_entropy_norm, 'Entropia normalizzata')}
+          ${distList(c4.final_classification_dist)}
+        </div>
+        <div class="stab-card">
+          <h3>Priority finale</h3>
+          <div class="subtitle">Distribuzione della priorità (P1..P4) assegnata sullo stesso ticket.</div>
+          ${gauge(c4.priority_entropy_norm, 'Entropia normalizzata')}
+          ${distList(c4.final_priority_dist)}
+        </div>
+      </div>
+    </div>`;
 }
 
 // architecture map per la vista corrente
