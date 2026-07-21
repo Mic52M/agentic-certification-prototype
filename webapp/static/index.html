@@ -224,6 +224,44 @@
   .ch .warn{color:var(--yellow);font-size:11px;margin-top:4px}
   .kbd{background:#202832;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
 
+  /* === Behavioural: overview macro + 4 sezioni con schema uniforme === */
+  .bh-overview{background:linear-gradient(180deg,#1a1424,#131018);
+      border:1px solid var(--border);border-left:3px solid var(--bh);
+      border-radius:10px;padding:14px 16px;margin-bottom:16px}
+  .bh-overview .title{font-size:13px;font-weight:700;color:var(--bh);
+      text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+  .bh-overview .lead{font-size:13px;line-height:1.55;color:var(--txt);margin-bottom:12px}
+  .bh-overview .lead b{color:var(--bh)}
+  .bh-overview .roles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media (max-width:900px){.bh-overview .roles{grid-template-columns:1fr 1fr}}
+  .bh-role{background:#0f141b;border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+  .bh-role .rid{color:var(--bh);font-weight:700;font-size:11px;letter-spacing:.5px;margin-right:6px}
+  .bh-role .rname{color:var(--txt);font-size:12px;font-weight:600}
+  .bh-role .rrole{color:var(--dim2);font-size:10.5px;text-transform:uppercase;
+      letter-spacing:.5px;margin-top:2px;display:block}
+  .bh-role .rline{color:var(--dim);font-size:11px;line-height:1.45;margin-top:5px}
+
+  .bh-sec{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      margin-top:16px;overflow:hidden}
+  .bh-sec .bh-head{padding:12px 16px;border-bottom:1px solid var(--border);
+      display:flex;align-items:baseline;gap:10px}
+  .bh-sec .bh-head .rid{color:var(--bh);font-weight:700;font-size:13px;letter-spacing:.5px}
+  .bh-sec .bh-head .rname{color:var(--txt);font-size:14px;font-weight:600}
+  .bh-sec .bh-head .rrole{color:var(--dim);font-size:11px;text-transform:uppercase;
+      letter-spacing:.6px;margin-left:auto}
+  .bh-sec .bh-schema{display:grid;grid-template-columns:80px 1fr;gap:12px 14px;
+      padding:12px 16px;border-bottom:1px solid var(--border);background:#0f141b;
+      font-size:12px;line-height:1.55}
+  .bh-sec .bh-schema .lb{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;
+      font-size:10px;font-weight:600;padding-top:2px}
+  .bh-sec .bh-schema .vl{color:var(--txt)}
+  .bh-sec .bh-schema .vl b{color:var(--bh)}
+  .bh-sec .bh-schema .metric{display:inline-block;background:#1a1424;
+      border:1px solid var(--border);border-radius:6px;padding:2px 8px;
+      font-family:'SF Mono',monospace;font-size:11px;color:var(--bh);
+      font-weight:600;margin-right:6px}
+  .bh-sec .bh-body{padding:14px 16px}
+
   /* === Behavioural: viste più leggibili per la demo === */
   .trajs{display:flex;flex-direction:column;gap:12px}
   .traj{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
@@ -987,6 +1025,44 @@ const CHANNEL_DESCRIPTIONS = {
   },
 };
 
+// Metadati compatti per le 4 evidenze Behavioural: ruolo epistemico
+// (substrato / derivata per-run / aggregata su N run), riga di sintesi
+// e etichetta della cardinalità dei dati raccolti.
+const BH_META = {
+  C1: {
+    name: "Trace end-to-end",
+    role: "substrato",
+    role_hint: "la base su cui poggiano C2, C3 e C4",
+    short_what: "La traiettoria completa di ogni run come sequenza gerarchica di eventi (LLM call, tool call, memory rw, handoff, decision, output).",
+    short_how:  "Raccolta unificata di TUTTI gli eventi della run, riordinati cronologicamente e per agente. Nessuna elaborazione: è la fotografia grezza.",
+    data_label: "traiettoria",
+  },
+  C2: {
+    name: "Coerenza state ↔ output",
+    role: "derivata · per-run",
+    role_hint: "un valore per ogni run",
+    short_what: "Verifica che lo stato consolidato del sistema (classification, priority, affected_service) arrivi coerente al testo dell'output finale.",
+    short_how:  "Al termine della run, confronto lessicale dei valori dei 3 campi chiave dello stato con il testo dell'output. Copertura = quanti campi appaiono.",
+    data_label: "copertura",
+  },
+  C3: {
+    name: "Sequenza decisioni",
+    role: "derivata · per-run",
+    role_hint: "un elenco per ogni run",
+    short_what: "Sequenza cronologica dei punti decisionali emessi dagli agenti lungo la traiettoria (planner: servizio, log/metrics: findings, classifier: classe/priority).",
+    short_how:  "Filtro degli eventi decision_point sulla trace ordinati per timestamp; ogni decisione porta agente, etichetta e valore scelto.",
+    data_label: "decisioni/run",
+  },
+  C4: {
+    name: "Stabilità comportamentale",
+    role: "aggregata · N-run",
+    role_hint: "un valore per ogni esperimento",
+    short_what: "Distribuzione delle firme di traiettoria e dei campi finali (classification, priority) su N ripetizioni dello stesso ticket.",
+    short_how:  "Aggregazione a fine batch: raggruppamento delle N run per firma, calcolo distribuzione + entropia normalizzata (0 = stabile, 100% = massima varianza).",
+    data_label: "distribuzioni",
+  },
+};
+
 function renderMacroView(macroKey) {
   if (!currentExperiment) return;
   const target = macroKey === 'control_flow' ? $('#v-cf')
@@ -1311,46 +1387,121 @@ function renderBehavioral(bh) {
       <p><span class="lb">A cosa serve</span>${d.why}</p>
       <p><span class="lb">Come sfruttarla</span>${d.how}</p></div>`;
   };
+  // Contatori "dati raccolti" per ogni evidenza (mostrati nell'header schema).
+  const nRuns = c1.n_runs || 0;
+  const c2_cov = (() => {
+    // media dei campi coperti per run
+    const vals = Object.values(c2.per_run || {}).map(r => (r.fields_covered_in_output || []).length);
+    if (!vals.length) return '—';
+    const avg = vals.reduce((a,b)=>a+b,0) / vals.length;
+    return `${avg.toFixed(1)}/3 in media`;
+  })();
+  const c3_dec = (() => {
+    const vals = Object.values(c3.per_run || {}).map(r => r.n_decisions || 0);
+    if (!vals.length) return '—';
+    const avg = vals.reduce((a,b)=>a+b,0) / vals.length;
+    return `${avg.toFixed(1)} in media`;
+  })();
+  const c4_sigs = (c4.trajectory_signatures || []).length;
+
+  function bhHeader(id, extra='') {
+    const m = BH_META[id];
+    return `<div class="bh-head">
+      <span class="rid">${id}</span>
+      <span class="rname">${esc(m.name)}</span>
+      <span class="rrole">${esc(m.role)}${extra ? ' · ' + extra : ''}</span>
+    </div>`;
+  }
+  function bhSchema(id, dataText) {
+    const m = BH_META[id];
+    return `<div class="bh-schema">
+      <div class="lb">Cosa</div><div class="vl">${m.short_what}</div>
+      <div class="lb">Come</div><div class="vl">${m.short_how}</div>
+      <div class="lb">Dati</div><div class="vl"><span class="metric">${dataText}</span><b>${esc(m.data_label)}</b> raccolte su questo esperimento</div>
+    </div>`;
+  }
+
   return `
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C1 · Trace end-to-end — traiettoria per run</h2>
-      ${bhBlock('C1')}
-      <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C2 · Coerenza state ↔ output</h2>
-      ${bhBlock('C2')}
-      <div>${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C3 · Sequenza decisioni</h2>
-      ${bhBlock('C3')}
-      <div>${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}</div>
-    </div>
-
-    <div class="section">
-      <h2><span class="macro-tag bh">BH</span> C4 · Stabilità comportamentale su ${c4.n_runs || '—'} run</h2>
-      ${bhBlock('C4')}
-      <div class="stab-grid">
-        <div class="stab-card">
-          <h3>Firme di traiettoria</h3>
-          <div class="subtitle">Sequenza degli agenti attivati per run. Se sempre la stessa → routing molto stabile.</div>
-          ${gauge(c4.signature_entropy_norm, 'Entropia normalizzata')}
-          ${sigList(c4.trajectory_signatures)}
+    <!-- Header di macro: cos'è la Behavioural e come si articolano le 4 evidenze -->
+    <div class="bh-overview">
+      <div class="title">Macro comportamentale — come si compone</div>
+      <div class="lead">Il comportamento del sistema <b>non è l'output finale</b>: è la <b>traiettoria</b> che porta all'output.
+      Osservare la macro comportamentale significa (i) registrare la traiettoria, (ii) verificarne la coerenza interna, (iii) quantificarne la stabilità su ripetizioni.</div>
+      <div class="roles">
+        <div class="bh-role">
+          <div><span class="rid">C1</span><span class="rname">${esc(BH_META.C1.name)}</span></div>
+          <span class="rrole">${esc(BH_META.C1.role)}</span>
+          <div class="rline">${esc(BH_META.C1.role_hint)}</div>
         </div>
-        <div class="stab-card">
-          <h3>Classification finale</h3>
-          <div class="subtitle">Distribuzione della classe assegnata dal Classifier sullo stesso ticket.</div>
-          ${gauge(c4.classification_entropy_norm, 'Entropia normalizzata')}
-          ${distList(c4.final_classification_dist)}
+        <div class="bh-role">
+          <div><span class="rid">C2</span><span class="rname">${esc(BH_META.C2.name)}</span></div>
+          <span class="rrole">${esc(BH_META.C2.role)}</span>
+          <div class="rline">${esc(BH_META.C2.role_hint)}</div>
         </div>
-        <div class="stab-card">
-          <h3>Priority finale</h3>
-          <div class="subtitle">Distribuzione della priorità (P1..P4) assegnata sullo stesso ticket.</div>
-          ${gauge(c4.priority_entropy_norm, 'Entropia normalizzata')}
-          ${distList(c4.final_priority_dist)}
+        <div class="bh-role">
+          <div><span class="rid">C3</span><span class="rname">${esc(BH_META.C3.name)}</span></div>
+          <span class="rrole">${esc(BH_META.C3.role)}</span>
+          <div class="rline">${esc(BH_META.C3.role_hint)}</div>
+        </div>
+        <div class="bh-role">
+          <div><span class="rid">C4</span><span class="rname">${esc(BH_META.C4.name)}</span></div>
+          <span class="rrole">${esc(BH_META.C4.role)}</span>
+          <div class="rline">${esc(BH_META.C4.role_hint)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C1: substrato -->
+    <div class="bh-sec">
+      ${bhHeader('C1', `${nRuns} run`)}
+      ${bhSchema('C1', `${nRuns}`)}
+      <div class="bh-body">
+        <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div>
+      </div>
+    </div>
+
+    <!-- C2: per-run, state ↔ output -->
+    <div class="bh-sec">
+      ${bhHeader('C2', `${nRuns} coppie state/output`)}
+      ${bhSchema('C2', c2_cov)}
+      <div class="bh-body">
+        ${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}
+      </div>
+    </div>
+
+    <!-- C3: per-run, sequenza decisioni -->
+    <div class="bh-sec">
+      ${bhHeader('C3', `${nRuns} sequenze`)}
+      ${bhSchema('C3', c3_dec)}
+      <div class="bh-body">
+        ${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}
+      </div>
+    </div>
+
+    <!-- C4: aggregata su N run -->
+    <div class="bh-sec">
+      ${bhHeader('C4', `esperimento di ${c4.n_runs || nRuns} run`)}
+      ${bhSchema('C4', `${c4_sigs} firme distinte`)}
+      <div class="bh-body">
+        <div class="stab-grid">
+          <div class="stab-card">
+            <h3>Firme di traiettoria</h3>
+            <div class="subtitle">Sequenza degli agenti attivati. Se sempre la stessa → routing stabile.</div>
+            ${gauge(c4.signature_entropy_norm, 'Entropia normalizzata')}
+            ${sigList(c4.trajectory_signatures)}
+          </div>
+          <div class="stab-card">
+            <h3>Classification finale</h3>
+            <div class="subtitle">Distribuzione della classe assegnata dal Classifier sullo stesso ticket.</div>
+            ${gauge(c4.classification_entropy_norm, 'Entropia normalizzata')}
+            ${distList(c4.final_classification_dist)}
+          </div>
+          <div class="stab-card">
+            <h3>Priority finale</h3>
+            <div class="subtitle">Distribuzione della priorità (P1..P4) assegnata sullo stesso ticket.</div>
+            ${gauge(c4.priority_entropy_norm, 'Entropia normalizzata')}
+            ${distList(c4.final_priority_dist)}
+          </div>
         </div>
       </div>
     </div>`;
