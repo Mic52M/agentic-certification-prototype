@@ -141,6 +141,28 @@
   .section .macro-tag.df{background:var(--df)}
   .section .macro-tag.bh{background:var(--bh)}
 
+  /* Sezioni collassabili (details/summary nativi) per le viste secondarie */
+  details.section-toggle{margin-top:20px;border:1px solid var(--border);
+      border-radius:10px;background:var(--panel);overflow:hidden}
+  details.section-toggle > summary{list-style:none;cursor:pointer;
+      padding:12px 16px;display:flex;align-items:center;gap:10px;user-select:none;
+      background:var(--panel);transition:background .15s}
+  details.section-toggle > summary::-webkit-details-marker{display:none}
+  details.section-toggle > summary:hover{background:var(--panel2)}
+  details.section-toggle > summary .chev{color:var(--dim);font-size:11px;
+      transition:transform .2s;display:inline-block;width:12px;text-align:center}
+  details.section-toggle[open] > summary .chev{transform:rotate(90deg)}
+  details.section-toggle > summary .stitle{font-size:14px;text-transform:uppercase;
+      letter-spacing:.7px;color:var(--dim);flex:1;display:flex;align-items:center;gap:10px}
+  details.section-toggle > summary .stitle .macro-tag{padding:2px 8px;
+      border-radius:6px;font-size:11px;font-weight:700;color:#000}
+  details.section-toggle > summary .stitle .macro-tag.df{background:var(--df)}
+  details.section-toggle > summary .stitle .macro-tag.bh{background:var(--bh)}
+  details.section-toggle > summary .stitle .macro-tag.cf{background:var(--cf)}
+  details.section-toggle > summary .stitle .subhint{color:var(--dim2);
+      font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;margin-left:auto}
+  details.section-toggle > .toggle-body{padding:14px 16px 16px;border-top:1px solid var(--border)}
+
   .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
   .ev{background:var(--panel);border:1px solid var(--border);border-radius:10px;
       padding:14px 16px;display:flex;flex-direction:column;gap:8px}
@@ -1082,7 +1104,12 @@ function renderDataFlow(df) {
       <div class="channels">${channelCards}</div></div>
     <div class="section"><h2><span class="macro-tag df">DF</span> Estratti dei canali</h2>
       <div class="cats">${samplesByCh || '<div class="empty">Nessun payload da mostrare.</div>'}</div></div>
-    <div class="section"><h2><span class="macro-tag df">DF</span> B2 · Channel Leakage Rate <span class="dim">(proxy)</span></h2>
+
+    <details class="section-toggle"><summary>
+      <span class="chev">▶</span>
+      <span class="stitle"><span class="macro-tag df">DF</span> B2 · Channel Leakage Rate <span class="dim">(proxy)</span>
+      <span class="subhint">chiuso in demo · aggregazione in stato esplorativo</span></span>
+    </summary><div class="toggle-body">
       ${dfBlock('B2')}
       <div class="card2"><table>
         <tr><th>canale</th><th>out-of-policy</th><th>N run</th><th>CLR (proxy)</th><th>allowed A</th></tr>
@@ -1090,15 +1117,28 @@ function renderDataFlow(df) {
          <td class="num">${v.runs_with_out_of_policy_hit}</td><td class="num">${v.n_runs}</td>
          <td class="num">${(v.clr_proxy*100).toFixed(0)}%</td>
          <td>${v.allowed_set.map(a=>`<span class="kbd">${esc(a)}</span>`).join(' ') || '<span class="dim">—</span>'}</td></tr>`).join('')}
-      </table></div></div>
-    <div class="section"><h2><span class="macro-tag df">DF</span> B3 · System Leakage Rate (proxy) — S = ${b3.S.join(', ')}</h2>
+      </table></div>
+    </div></details>
+
+    <details class="section-toggle"><summary>
+      <span class="chev">▶</span>
+      <span class="stitle"><span class="macro-tag df">DF</span> B3 · System Leakage Rate <span class="dim">(proxy)</span>
+      <span class="subhint">chiuso in demo · aggregazione in stato esplorativo</span></span>
+    </summary><div class="toggle-body">
       ${dfBlock('B3')}
       <div class="card2"><div class="big" style="font-size:32px">${(b3.slr_proxy*100).toFixed(0)}%</div>
-      <div class="meta">runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div></div></div>
-    <div class="section"><h2><span class="macro-tag df">DF</span> B4 · Vault V &amp; Allowed Set A</h2>
+        <div class="meta">S = ${b3.S.join(', ')}  ·  runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div></div>
+    </div></details>
+
+    <details class="section-toggle"><summary>
+      <span class="chev">▶</span>
+      <span class="stitle"><span class="macro-tag df">DF</span> B4 · Vault V &amp; Allowed Set A
+      <span class="subhint">chiuso in demo · policy dichiarata</span></span>
+    </summary><div class="toggle-body">
       ${dfBlock('B4')}
       <div class="card2"><div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
-      <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div></div>`;
+      <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div>
+    </div></details>`;
 }
 function renderBehavioral(bh) {
   const c1 = bh.C1_trajectories, c2 = bh.C2_state_output;
