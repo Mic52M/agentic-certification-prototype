@@ -243,12 +243,22 @@
 
   .bh-sec{background:var(--panel);border:1px solid var(--border);border-radius:10px;
       margin-top:16px;overflow:hidden}
-  .bh-sec .bh-head{padding:12px 16px;border-bottom:1px solid var(--border);
-      display:flex;align-items:baseline;gap:10px}
-  .bh-sec .bh-head .rid{color:var(--bh);font-weight:700;font-size:13px;letter-spacing:.5px}
-  .bh-sec .bh-head .rname{color:var(--txt);font-size:14px;font-weight:600}
-  .bh-sec .bh-head .rrole{color:var(--dim);font-size:11px;text-transform:uppercase;
+  /* .bh-sec e' ora un <details>: il summary sostituisce il vecchio .bh-head */
+  .bh-sec > summary{list-style:none;cursor:pointer;padding:12px 16px;
+      display:flex;align-items:baseline;gap:10px;user-select:none;
+      background:var(--panel);transition:background .15s}
+  .bh-sec > summary::-webkit-details-marker{display:none}
+  .bh-sec > summary:hover{background:var(--panel2)}
+  .bh-sec[open] > summary{border-bottom:1px solid var(--border)}
+  .bh-sec > summary .chev{color:var(--dim);font-size:11px;transition:transform .2s;
+      display:inline-block;width:12px;text-align:center;margin-right:4px}
+  .bh-sec[open] > summary .chev{transform:rotate(90deg)}
+  .bh-sec > summary .rid{color:var(--bh);font-weight:700;font-size:13px;letter-spacing:.5px}
+  .bh-sec > summary .rname{color:var(--txt);font-size:14px;font-weight:600}
+  .bh-sec > summary .rrole{color:var(--dim);font-size:11px;text-transform:uppercase;
       letter-spacing:.6px;margin-left:auto}
+  .bh-sec > summary .subhint{color:var(--dim2);font-weight:400;font-size:11px;
+      text-transform:none;letter-spacing:0}
   .bh-sec .bh-schema{display:grid;grid-template-columns:80px 1fr;gap:12px 14px;
       padding:12px 16px;border-bottom:1px solid var(--border);background:#0f141b;
       font-size:12px;line-height:1.55}
@@ -1406,11 +1416,15 @@ function renderBehavioral(bh) {
 
   function bhHeader(id, extra='') {
     const m = BH_META[id];
-    return `<div class="bh-head">
+    // Header emesso come <summary> per il <details> che avvolge la sezione:
+    // click per aprire/chiudere. Chevron animato a sinistra.
+    return `<summary>
+      <span class="chev">▶</span>
       <span class="rid">${id}</span>
       <span class="rname">${esc(m.name)}</span>
-      <span class="rrole">${esc(m.role)}${extra ? ' · ' + extra : ''}</span>
-    </div>`;
+      <span class="rrole">${esc(m.role)}${extra ? ' · ' + extra : ''}
+        <span class="subhint"> · click per espandere</span></span>
+    </summary>`;
   }
   function bhSchema(id, dataText) {
     const m = BH_META[id];
@@ -1452,34 +1466,34 @@ function renderBehavioral(bh) {
     </div>
 
     <!-- C1: substrato -->
-    <div class="bh-sec">
+    <details class="bh-sec">
       ${bhHeader('C1', `${nRuns} run`)}
       ${bhSchema('C1', `${nRuns}`)}
       <div class="bh-body">
         <div class="trajs">${trajList || '<div class="empty">Nessuna traiettoria.</div>'}</div>
       </div>
-    </div>
+    </details>
 
     <!-- C2: per-run, state ↔ output -->
-    <div class="bh-sec">
+    <details class="bh-sec">
       ${bhHeader('C2', `${nRuns} coppie state/output`)}
       ${bhSchema('C2', c2_cov)}
       <div class="bh-body">
         ${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}
       </div>
-    </div>
+    </details>
 
     <!-- C3: per-run, sequenza decisioni -->
-    <div class="bh-sec">
+    <details class="bh-sec">
       ${bhHeader('C3', `${nRuns} sequenze`)}
       ${bhSchema('C3', c3_dec)}
       <div class="bh-body">
         ${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}
       </div>
-    </div>
+    </details>
 
     <!-- C4: aggregata su N run -->
-    <div class="bh-sec">
+    <details class="bh-sec">
       ${bhHeader('C4', `esperimento di ${c4.n_runs || nRuns} run`)}
       ${bhSchema('C4', `${c4_sigs} firme distinte`)}
       <div class="bh-body">
@@ -1504,7 +1518,7 @@ function renderBehavioral(bh) {
           </div>
         </div>
       </div>
-    </div>`;
+    </details>`;
 }
 
 // architecture map per la vista corrente
