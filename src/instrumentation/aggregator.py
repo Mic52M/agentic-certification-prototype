@@ -147,10 +147,14 @@ class Aggregator:
                     if tgt and tgt not in ("__end__", "END"):
                         n_a3 += 1
                         if len(a3_samples) < 20:
+                            # Salviamo `reason` separatamente (che sta nei
+                            # metadati). Non riusiamo `payload_summary` perché
+                            # include già "→ target · reason": la UI andrebbe
+                            # in duplicazione (orchestrator → reader · → reader · ...).
                             a3_samples.append({
                                 "run_id": run_id,
                                 "from": "orchestrator", "to": tgt,
-                                "summary": ev.get("payload_summary"),
+                                "reason": ev.get("metadata", {}).get("reason", ""),
                             })
                         a3_edges[("orchestrator", tgt)] += 1
                 elif k == EventKind.PLANNING_SPAN.value:

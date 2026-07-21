@@ -967,7 +967,12 @@ function renderControlFlow(cf) {
     `<span class="kbd">${esc(k)}: ${v}</span>`).join(' ');
   const a1Samples = (a1.samples||[]).slice(0,10).map(s=>`${s.summary || s.target}`);
   const a2Samples = (a2.samples||[]).slice(0,8).map(s=>`(${s.meta?.n_steps||'?'} step) ${s.summary}`);
-  const a3Samples = (a3.samples||[]).slice(0,10).map(s=>`${s.from} → ${s.to} · ${s.summary}`);
+  // s.reason arriva dai orchestrator_decision (nuovo formato); s.summary è
+  // il fallback per gli handoff espliciti (test/estensioni).
+  const a3Samples = (a3.samples||[]).slice(0,10).map(s=>{
+    const detail = s.reason || s.summary || '';
+    return detail ? `${s.from} → ${s.to} · ${detail}` : `${s.from} → ${s.to}`;
+  });
   const a3EdgesRows = (a3.edges||[]).map(e=>`<tr><td>${e.from}</td><td>${e.to}</td><td class="num">${e.count}</td></tr>`).join('');
   const a4agg = a4.aggregate;
   const outcomesRows = Object.entries(a4agg.outcomes||{}).map(([k,v])=>`<tr><td>${k}</td><td class="num">${v}</td></tr>`).join('');
