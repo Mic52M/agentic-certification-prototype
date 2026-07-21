@@ -988,12 +988,11 @@ function renderControlFlow(cf) {
           extraRows: `<div class="row"><span class="k">Replan tot</span><span class="v"><b>${a2.total_replans}</b></span></div>`})}
         ${evidenceCard('cf', a3, {evidenceId:'A3', total: a3.total, per_run: a3.per_run, samples: a3Samples,
           extraRows: a3EdgesRows ? `<div class="row"><span class="k">Edge</span><span class="v"><table><tr><th>from</th><th>to</th><th>#</th></tr>${a3EdgesRows}</table></span></div>` : ''})}
-        ${evidenceCard('cf', a4, {evidenceId:'A4',
-          extraRows:`<div class="row"><span class="k">Runs</span><span class="v">${a4agg.n_runs}</span></div>
-                     <div class="row"><span class="k">Steps</span><span class="v">min ${a4agg.steps.min} · avg ${a4agg.steps.mean.toFixed(1)} · max ${a4agg.steps.max}</span></div>
-                     <div class="row"><span class="k">Duration</span><span class="v">avg ${a4agg.duration_ms.mean.toFixed(0)} ms</span></div>
-                     <div class="row"><span class="k">Esiti</span><span class="v"><table>${outcomesRows}</table></span></div>`})}
       </div>
+      <!-- Nota: A4 (metriche di percorso) e' un'evidenza derivata (funzione
+           aggregata sulla trace, non una sonda con eventi propri). Le stesse
+           metriche compaiono qui sotto nella sezione "Aggregazione multi-run",
+           che e' la loro forma naturale. -->
     </div>
     <div class="section"><h2><span class="macro-tag cf">CF</span> Aggregazione multi-run</h2>
       <div class="card2"><table>
