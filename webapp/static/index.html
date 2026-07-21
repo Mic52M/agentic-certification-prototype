@@ -188,6 +188,11 @@
   .channels{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
   .ch{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
   .ch .cname{font-weight:600;font-size:13px}
+  .ch .cdesc{font-size:11px;line-height:1.5;color:var(--dim);margin:6px 0 8px}
+  .ch .cdesc .lb{color:var(--txt);font-weight:600;text-transform:uppercase;
+      letter-spacing:.4px;font-size:9.5px;margin-right:4px}
+  .ch .cdesc p{margin:0 0 4px}
+  .ch .cdesc p:last-child{margin-bottom:0}
   .ch .cnums{display:flex;gap:14px;margin:6px 0;font-size:12px}
   .ch .cnums span b{font-size:16px;color:var(--txt);margin-right:4px}
   .ch .bar{height:6px;background:#0a0e13;border-radius:3px;overflow:hidden;margin:6px 0}
@@ -927,6 +932,39 @@ const EVIDENCE_DESCRIPTIONS = {
   },
 };
 
+// Descrizioni tecniche compatte dei 7 canali AgentLeak (C1..C7):
+// cosa contiene quel canale (semantica) + dove/come lo intercettiamo (sonda).
+const CHANNEL_DESCRIPTIONS = {
+  C1: {
+    what: "L'ultimo messaggio consegnato all'utente. È l'unico canale osservabile in un audit output-only.",
+    how:  "Sonda al boundary agente→utente: intercetta l'evento di produzione della risposta finale (emesso dal Summarizer).",
+  },
+  C2: {
+    what: "Messaggi scambiati direttamente tra due agenti (mittente → destinatario), come notifiche o 'agent as tool', <i>senza</i> transito dal workspace.",
+    how:  "Wrapper sulle chiamate/notifiche inter-agente: registra sorgente, destinatario, soggetto e payload al momento dello scambio.",
+  },
+  C3: {
+    what: "Payload inviato dagli agenti ai tool esterni: nome tool + argomenti. È ciò che il sistema \"chiede\" al mondo esterno.",
+    how:  "Sonda al boundary tool-use, <b>prima</b> dell'esecuzione: intercetta la chiamata (nome + argomenti) uscente dall'agente.",
+  },
+  C4: {
+    what: "Risultato restituito dal tool all'agente chiamante. È ciò che dal mondo esterno rientra nel sistema e influenza i passi successivi.",
+    how:  "Sonda al boundary tool-use, <b>dopo</b> l'esecuzione: intercetta il valore di ritorno con esito, durata e payload.",
+  },
+  C5: {
+    what: "Contenuti scritti/letti nel workspace condiviso tra agenti. È il canale <b>asincrono</b> della collaborazione: chi ha scritto, chi legge, con quale chiave.",
+    how:  "Sonda ai punti di write/read del workspace tipizzato: ogni mutazione emette un evento con namespace, chiave e valore.",
+  },
+  C6: {
+    what: "Reasoning trace degli agenti: chain-of-thought esplicito, piani generati, motivazioni interne, replanning.",
+    how:  "Sonda sulle uscite testuali interne dell'agente (thought/plan/replan) — separate dall'artefatto finale per evitare confusione con C1/C7.",
+  },
+  C7: {
+    what: "Artefatti persistenti prodotti come output stabile (report tecnico, riepilogo, documento). Sopravvivono al termine della run.",
+    how:  "Sonda al momento della materializzazione dell'artefatto (nome, tipo, contenuto), tipicamente emessa dal Summarizer.",
+  },
+};
+
 function renderMacroView(macroKey) {
   if (!currentExperiment) return;
   const target = macroKey === 'control_flow' ? $('#v-cf')
@@ -1012,8 +1050,13 @@ function renderDataFlow(df) {
       `<span class="tag" style="background:${b4.allowed_set_A[cid]?.includes(cat)?'#243040':'#3d2417'}">${esc(cat)}: ${c}</span>`).join('');
     const outOfPolicy = b2ch.runs_with_out_of_policy_hit;
     const warn = outOfPolicy>0 ? `<div class="warn">⚠ ${outOfPolicy} run con categoria fuori policy (proxy CLR = ${(b2ch.clr_proxy*100).toFixed(0)}%)</div>` : '';
+    const desc = CHANNEL_DESCRIPTIONS[cid];
+    const descBlock = desc ? `<div class="cdesc">
+        <p><span class="lb">Cosa</span>${desc.what}</p>
+        <p><span class="lb">Come</span>${desc.how}</p></div>` : '';
     return `<div class="ch">
       <div class="cname">${esc(ch.channel_name)}</div>
+      ${descBlock}
       <div class="cnums"><span><b>${ch.total_events}</b> eventi</span><span><b>${(ch.total_bytes/1024).toFixed(1)}</b> KB</span></div>
       <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
       <div class="allowed">Allowed: ${(b2ch.allowed_set||[]).map(a=>`<span class="tag">${esc(a)}</span>`).join('') || '<i class="dim">—</i>'}</div>
