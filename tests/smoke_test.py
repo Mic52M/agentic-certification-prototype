@@ -18,14 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rich.console import Console  # noqa: E402
 
-from src import tools  # noqa: E402
+from src.legacy import tools  # noqa: E402
 from src.llm_client import LLMResponse  # noqa: E402
-from src.logging_utils import TraceLogger, make_run_id  # noqa: E402
-from src.multi_agent.graph import build_multi_agent_graph  # noqa: E402
+from src.legacy.logging_utils import TraceLogger, make_run_id  # noqa: E402
+from src.legacy.multi_agent.graph import build_multi_agent_graph  # noqa: E402
 from src.parsing import parse_react_action  # noqa: E402
-from src.properties import Status, evaluate_trace  # noqa: E402
-from src.single_agent.agent import build_single_agent_graph  # noqa: E402
-from src.state import MultiAgentState, SingleAgentState  # noqa: E402
+from src.legacy.properties import Status, evaluate_trace  # noqa: E402
+from src.legacy.single_agent.agent import build_single_agent_graph  # noqa: E402
+from src.legacy.state import MultiAgentState, SingleAgentState  # noqa: E402
 
 
 class FakeLLM:

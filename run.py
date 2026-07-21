@@ -14,13 +14,14 @@ from importlib.metadata import version
 
 from rich.console import Console
 
-from src import config, prompts
+from src import config
+from src.legacy import prompts
 from src.llm_client import LLMClient
-from src.logging_utils import TraceLogger, code_hash, make_run_id
-from src.multi_agent.graph import build_multi_agent_graph
-from src.multi_agent.orchestrator import ROUTING_RULES
-from src.single_agent.agent import build_single_agent_graph
-from src.state import MultiAgentState, SingleAgentState
+from src.legacy.logging_utils import TraceLogger, code_hash, make_run_id
+from src.legacy.multi_agent.graph import build_multi_agent_graph
+from src.legacy.multi_agent.orchestrator import ROUTING_RULES
+from src.legacy.single_agent.agent import build_single_agent_graph
+from src.legacy.state import MultiAgentState, SingleAgentState
 
 TICKET_RE = re.compile(r"\bT-\d+\b", re.IGNORECASE)
 

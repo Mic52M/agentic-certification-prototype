@@ -24,7 +24,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from . import config
+from .. import config
 
 # Recognized event types (kept here as the single declarative list).
 EVENT_TYPES = (

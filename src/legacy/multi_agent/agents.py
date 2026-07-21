@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 
 from .. import prompts
-from ..llm_client import LLMClient
+from ...llm_client import LLMClient
 from ..logging_utils import TraceLogger
-from ..parsing import extract_json_object, parse_react_action
+from ...parsing import extract_json_object, parse_react_action
 from ..state import MultiAgentState
 from ..tools import execute_tool
 

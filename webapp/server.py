@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src import config  # noqa: E402
-from src.incident_demo.runner import run_experiment  # noqa: E402
+from src.demo.runner import run_experiment  # noqa: E402
 
 app = FastAPI(title="Agentic Instrumentation Demo")
 STATIC = Path(__file__).resolve().parent / "static"

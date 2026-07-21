@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from ..llm_client import LLMClient
+from ...llm_client import LLMClient
 from ..logging_utils import TraceLogger
 from ..state import MultiAgentState
 from .agents import build_specialist_nodes

@@ -11,7 +11,7 @@ voglia mappare 1:1 il codice sulle categorie del documento delle evidenze.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│  Business logic (incident_demo/)                                          │
+│  Business logic (src/demo/)                                               │
 │                                                                           │
 │    ┌─────────────┐   ┌───────────────┐   ┌───────────────┐                │
 │    │ orchestrator│──▶│ agents (7)     │──▶│ tools (4)     │                │
@@ -52,7 +52,7 @@ Ogni pezzo è isolato in un modulo dedicato:
 | `src/instrumentation/store.py`           | Persistenza append-only JSONL + indice esperimento |
 | `src/instrumentation/session.py`         | Ciclo di vita run/esperimento + `run_id`/`experiment_id` |
 | `src/instrumentation/aggregator.py`      | Costruzione metriche per macro (A1..A4, B1..B4, C1..C4) |
-| `src/incident_demo/*`                    | Il use case ricco (stato, agenti, orchestratore, grafo, runner) |
+| `src/demo/*`                    | Il use case ricco (stato, agenti, orchestratore, grafo, runner) |
 | `webapp/server.py`                       | HTTP + SSE per la UI live |
 | `webapp/static/index.html`               | UI a tre viste |
 
@@ -142,9 +142,9 @@ Nel dettaglio, per ciascuna macro:
 
 | Hook | File | Chi lo chiama | Evidenza |
 |------|------|---------------|----------|
-| `orchestrator_decision` | `src/incident_demo/orchestrator.py::orchestrator_node` | l'orchestratore, a ogni iterazione | A1 |
+| `orchestrator_decision` | `src/demo/orchestrator.py::orchestrator_node` | l'orchestratore, a ogni iterazione | A1 |
 | `handoff` | idem, subito dopo la decisione | orchestratore | A3 (parte control-side) |
-| `planning_span` | `src/incident_demo/agents.py::planner` | agente planner | A2 |
+| `planning_span` | `src/demo/agents.py::planner` | agente planner | A2 |
 | `replanning` | (attivo se planner produce un piano rivisto) | planner | A2 bis |
 
 Le regole di routing (`ROUTING_RULES` in `orchestrator.py`) sono la guardia

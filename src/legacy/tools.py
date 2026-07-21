@@ -14,7 +14,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from . import config
+from .. import config
 
 
 @lru_cache(maxsize=1)

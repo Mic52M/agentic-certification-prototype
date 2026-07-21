@@ -31,8 +31,8 @@ from rich.table import Table
 
 import run as runner
 from src import config
-from src.logging_utils import TraceLogger, make_run_id
-from src.properties import SPECS, evaluate_trace
+from src.legacy.logging_utils import TraceLogger, make_run_id
+from src.legacy.properties import SPECS, evaluate_trace
 
 ROOT = Path(__file__).resolve().parent
 EXPERIMENTS_DIR = ROOT / "experiments"

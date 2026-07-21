@@ -36,13 +36,18 @@ EXPERIMENT_DELAY_S: float = float(os.getenv("EXPERIMENT_DELAY_S", "1.0"))
 DATA_DIR = PROJECT_ROOT / "data"
 TRACES_DIR = PROJECT_ROOT / "traces"
 EXPERIMENTS_DIR = PROJECT_ROOT / "experiments"
-INCIDENT_DATA_DIR = DATA_DIR / "incidents"
-KNOWLEDGE_BASE_PATH = DATA_DIR / "knowledge_base.json"
-TICKETS_PATH = DATA_DIR / "tickets.json"
-INCIDENTS_PATH = INCIDENT_DATA_DIR / "incidents.json"
-APP_LOGS_PATH = INCIDENT_DATA_DIR / "app_logs.json"
-METRICS_PATH = INCIDENT_DATA_DIR / "metrics.json"
-POSTMORTEMS_PATH = INCIDENT_DATA_DIR / "postmortems.json"
+
+# Dataset della demo attuale (incident triage) in data/demo/.
+DEMO_DATA_DIR = DATA_DIR / "demo"
+INCIDENTS_PATH = DEMO_DATA_DIR / "incidents.json"
+APP_LOGS_PATH = DEMO_DATA_DIR / "app_logs.json"
+METRICS_PATH = DEMO_DATA_DIR / "metrics.json"
+POSTMORTEMS_PATH = DEMO_DATA_DIR / "postmortems.json"
+
+# Dataset del vecchio prototipo (mail troubleshooting) in data/legacy/.
+LEGACY_DATA_DIR = DATA_DIR / "legacy"
+KNOWLEDGE_BASE_PATH = LEGACY_DATA_DIR / "knowledge_base.json"
+TICKETS_PATH = LEGACY_DATA_DIR / "tickets.json"
 
 
 def require_api_key() -> str:
