@@ -195,6 +195,45 @@
   .macro-descr p:last-child{margin-bottom:0}
   .macro-descr .lb{color:var(--txt);font-weight:600;text-transform:uppercase;
       letter-spacing:.4px;font-size:10px;margin-right:4px}
+  /* --- Metriche di dettaglio dentro le evidence card (Control Flow) --- */
+  .det-wrap{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+  .det-wrap > summary{cursor:pointer;color:var(--cf);font-size:12px;font-weight:600;
+      list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+  .det-wrap > summary::-webkit-details-marker{display:none}
+  .det-wrap > summary:hover{color:var(--txt)}
+  .det-wrap > summary .chev{font-size:10px;transition:transform .2s;display:inline-block}
+  .det-wrap[open] > summary .chev{transform:rotate(90deg)}
+  .det-list{margin-top:10px;display:flex;flex-direction:column;gap:10px}
+  .det{background:#0f141b;border:1px solid var(--border);border-left:3px solid var(--cf);
+      border-radius:8px;padding:10px 12px}
+  .det .dtop{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .det .dlabel{font-weight:600;font-size:12.5px;color:var(--txt)}
+  .det .dval{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;
+      color:var(--cf);white-space:nowrap}
+  .det .dval.good{color:var(--green)} .det .dval.warn{color:var(--yellow)}
+  .det .dval.bad{color:var(--red)}
+  .det .dci{font-size:11px;color:var(--dim);white-space:nowrap}
+  .det .dq{font-size:11.5px;color:var(--dim);line-height:1.45;margin-top:4px;font-style:italic}
+  .det .droot{font-size:10px;color:var(--dim2);text-transform:uppercase;
+      letter-spacing:.4px;margin-top:5px}
+  .det .dstats{display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;font-size:11.5px}
+  .det .dstats span{color:var(--dim)}
+  .det .dstats span b{color:var(--txt);font-variant-numeric:tabular-nums;margin-left:3px}
+  .det .dnote{font-size:11px;color:var(--dim2);margin-top:6px;line-height:1.45}
+  .det .dbars{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+  .det .dbar{display:flex;align-items:center;gap:8px;font-size:11px}
+  .det .dbar .k{min-width:34px;text-align:right;color:var(--cf);font-weight:600;
+      font-variant-numeric:tabular-nums}
+  .det .dbar .b{flex:1;height:5px;background:#0a0e13;border-radius:3px;overflow:hidden}
+  .det .dbar .b i{display:block;height:100%;background:var(--cf)}
+  .det .dbar .n{color:var(--dim);font-family:'SF Mono',monospace;font-size:10.5px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+  .det .dtags{margin-top:7px;display:flex;flex-wrap:wrap;gap:4px}
+  .det .dtag{font-size:10.5px;padding:2px 7px;border-radius:8px;background:#1b2430;
+      border:1px solid var(--border);color:var(--dim);font-family:'SF Mono',monospace}
+  .det .dtag.alert{background:#2e2510;border-color:var(--yellow);color:var(--yellow)}
+  .det .dtag.err{background:#2d0f0f;border-color:var(--red);color:var(--red)}
+
   .ev .perrun{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px}
   .ev .perrun .cell{width:18px;height:18px;border-radius:3px;background:#22303f;
       font-size:10px;color:var(--txt);display:flex;align-items:center;justify-content:center}
@@ -932,6 +971,7 @@ function evidenceCard(macro, ev, opts={}) {
       ${perRun ? `<div class="row"><span class="k">Per run</span><span class="v"><div class="perrun">${perRun}</div></span></div>` : ''}
       ${opts.extraRows || ''}
       ${samples}
+      ${opts.detail ? detailBlock(opts.detail) : ''}
     </div>`;
 }
 
@@ -1106,6 +1146,130 @@ function renderMacroLive(macroKey) {
   box.scrollTop = box.scrollHeight;
 }
 
+// ========================================================================
+// RENDER: metriche di dettaglio Control Flow
+// Ogni metrica ha forma { label, root, question, value?, format?, stats?, ... }
+// e viene resa con un renderer generico + estensioni per i campi specifici.
+// ========================================================================
+function fmtVal(v, format) {
+  if (v === undefined || v === null) return null;
+  if (format === 'pct')   return (v * 100).toFixed(0) + '%';
+  if (format === 'ratio') return Number(v).toFixed(2);
+  if (format === 'int')   return String(Math.round(v));
+  return (typeof v === 'number') ? Number(v).toFixed(2) : String(v);
+}
+// Colore del valore: per le metriche "più alto è meglio" vs "più basso è meglio".
+const LOWER_IS_BETTER = new Set(['A4_3_tool_error_rate']);
+function valClass(key, v, format) {
+  if (typeof v !== 'number' || format === 'int' || format === 'ratio') return '';
+  const good = LOWER_IS_BETTER.has(key) ? (v <= 0.05) : (v >= 0.95);
+  const warn = LOWER_IS_BETTER.has(key) ? (v <= 0.2)  : (v >= 0.7);
+  return good ? 'good' : (warn ? 'warn' : 'bad');
+}
+function statsRow(s) {
+  if (!s || !s.n) return '';
+  return `<div class="dstats">
+    <span>min<b>${Number(s.min).toFixed(s.min % 1 ? 1 : 0)}</b></span>
+    <span>media<b>${Number(s.mean).toFixed(1)}</b></span>
+    <span>max<b>${Number(s.max).toFixed(s.max % 1 ? 1 : 0)}</b></span>
+    <span>σ<b>${Number(s.stdev).toFixed(2)}</b></span>
+    <span>n<b>${s.n}</b></span>
+  </div>`;
+}
+function barsFromDist(dist, maxItems=8) {
+  const entries = Object.entries(dist || {}).sort((a,b)=>b[1]-a[1]).slice(0, maxItems);
+  if (!entries.length) return '';
+  const max = Math.max(...entries.map(e=>e[1]));
+  return `<div class="dbars">${entries.map(([k,v])=>`
+    <div class="dbar"><span class="k">${v}×</span>
+      <span class="b"><i style="width:${(v/max)*100}%"></i></span>
+      <span class="n" title="${esc(k)}">${esc(k)}</span></div>`).join('')}</div>`;
+}
+function renderDetailMetric(key, m) {
+  const val = fmtVal(m.value, m.format);
+  const cls = valClass(key, m.value, m.format);
+  // intervallo di confidenza (solo A4_2)
+  const ci = (m.ci_lo !== undefined && m.ci_hi !== undefined)
+    ? `<div class="dci">IC 95%: ${(m.ci_lo*100).toFixed(0)}–${(m.ci_hi*100).toFixed(0)}%</div>` : '';
+
+  let extra = '';
+  // stats standard
+  if (m.stats) extra += statsRow(m.stats);
+  // fitness/precision (A2_3)
+  if (m.fitness || m.precision) {
+    const f = m.fitness, p = m.precision;
+    extra += `<div class="dstats">
+      ${f && f.n ? `<span>fitness<b>${(f.mean*100).toFixed(0)}%</b></span>` : ''}
+      ${p && p.n ? `<span>precision<b>${(p.mean*100).toFixed(0)}%</b></span>` : ''}
+    </div>`;
+  }
+  // distribuzioni note
+  if (m.target_distribution) extra += barsFromDist(m.target_distribution);
+  if (m.distribution)        extra += barsFromDist(m.distribution);
+  if (m.first_step_distribution) extra += barsFromDist(m.first_step_distribution, 5);
+  if (m.fanout)              extra += barsFromDist(m.fanout, 6);
+  // trace variants (A4_4)
+  if (m.variants && m.variants.length) {
+    const max = Math.max(...m.variants.map(v=>v.count));
+    extra += `<div class="dbars">${m.variants.map(v=>`
+      <div class="dbar"><span class="k">${v.count}×</span>
+        <span class="b"><i style="width:${(v.count/max)*100}%"></i></span>
+        <span class="n" title="${esc((v.sequence||[]).join(' → '))}">${esc((v.sequence||[]).join(' → '))}</span></div>`).join('')}</div>`;
+  }
+  // entropie secondarie
+  const ents = [];
+  if (m.target_entropy_norm !== undefined) ents.push(`entropia target ${(m.target_entropy_norm*100).toFixed(0)}%`);
+  if (m.reason_entropy_norm !== undefined) ents.push(`entropia motivi ${(m.reason_entropy_norm*100).toFixed(0)}%`);
+  if (m.entropy_norm !== undefined)        ents.push(`entropia ${(m.entropy_norm*100).toFixed(0)}%`);
+  if (m.length_entropy_norm !== undefined) ents.push(`entropia lunghezze ${(m.length_entropy_norm*100).toFixed(0)}%`);
+  if (m.n_variants !== undefined)          ents.push(`${m.n_variants} varianti su ${m.n_runs} run`);
+  if (m.p95 !== undefined)                 ents.push(`p95 ${Number(m.p95).toFixed(0)}`);
+  if (m.p95_ms !== undefined)              ents.push(`p95 ${Number(m.p95_ms).toFixed(0)} ms`);
+  if (m.forced_ratio !== undefined)        ents.push(`decisioni forzate ${(m.forced_ratio*100).toFixed(0)}% (${m.forced_decisions}/${m.total_decisions})`);
+  if (m.total_tool_calls !== undefined)    ents.push(`${m.total_errors}/${m.total_tool_calls} tool call in errore`);
+  if (m.n_edges !== undefined)             ents.push(`${m.n_edges} archi su ${m.max_possible_edges} possibili · ${m.n_nodes} nodi`);
+  if (m.edges !== undefined && m.nodes !== undefined) ents.push(`E=${m.edges} · N=${m.nodes}`);
+  if (m.bounces !== undefined)             ents.push(`${m.bounces} bounce A→B→A`);
+  if (m.n_contexts !== undefined)          ents.push(`${m.n_deterministic}/${m.n_contexts} contesti deterministici`);
+  if (m.exercised !== undefined)           ents.push(`${m.exercised}/${m.declared} archi esercitati`);
+  if (m.activated !== undefined)           ents.push(`${m.activated}/${m.declared} regole attivate`);
+  if (m.runs_with_replan !== undefined)    ents.push(`${m.runs_with_replan}/${m.n_runs} run con replan`);
+  if (ents.length) extra += `<div class="dstats"><span>${ents.map(esc).join(' · ')}</span></div>`;
+
+  // liste di "alert" (dead rules, archi inattesi, contesti ambigui)
+  const tags = [];
+  (m.dead_rules || []).forEach(r =>
+    tags.push(`<span class="dtag alert" title="regola mai attivata">✗ ${esc(r.reason || r.target)}</span>`));
+  (m.unexpected_edges || []).forEach(e =>
+    tags.push(`<span class="dtag err" title="arco fuori topologia dichiarata">⚠ ${esc(e.from)}→${esc(e.to)}</span>`));
+  (m.never_exercised || []).forEach(e =>
+    tags.push(`<span class="dtag" title="arco dichiarato mai percorso">${esc(e.from)}→${esc(e.to)}</span>`));
+  (m.ambiguous_contexts || []).forEach(c =>
+    tags.push(`<span class="dtag alert">ctx ambiguo: ${esc(Object.keys(c.targets||{}).join('/'))}</span>`));
+  if (tags.length) extra += `<div class="dtags">${tags.slice(0,10).join('')}</div>`;
+
+  if (m.note) extra += `<div class="dnote">${esc(m.note)}</div>`;
+
+  return `<div class="det">
+    <div class="dtop">
+      <span class="dlabel">${esc(m.label)}</span>
+      ${val !== null ? `<span><span class="dval ${cls}">${val}</span>${ci}</span>` : ''}
+    </div>
+    <div class="dq">${esc(m.question || '')}</div>
+    ${extra}
+    <div class="droot">radice: ${esc(m.root || '')}</div>
+  </div>`;
+}
+function detailBlock(detail) {
+  const keys = Object.keys(detail || {});
+  if (!keys.length) return '';
+  return `<details class="det-wrap"><summary>
+      <span class="chev">▶</span> Metriche di dettaglio (${keys.length})
+    </summary>
+    <div class="det-list">${keys.map(k => renderDetailMetric(k, detail[k])).join('')}</div>
+  </details>`;
+}
+
 function renderControlFlow(cf) {
   const a1 = cf.A1_orchestrator_decisions, a2 = cf.A2_planning_spans;
   const a3 = cf.A3_handoffs, a4 = cf.A4_path_metrics;
@@ -1129,16 +1293,19 @@ function renderControlFlow(cf) {
     <div class="section"><h2><span class="macro-tag cf">CF</span> Evidence catalog</h2>
       <div class="cats">
         ${evidenceCard('cf', a1, {evidenceId:'A1', total: a1.total, per_run: a1.per_run, samples: a1Samples,
+          detail: a1.detail,
           extraRows: a1Targets ? `<div class="row"><span class="k">Target</span><span class="v">${a1Targets}</span></div>` : ''})}
         ${evidenceCard('cf', a2, {evidenceId:'A2', total: a2.total_plans, per_run: a2.per_run, samples: a2Samples,
+          detail: a2.detail,
           extraRows: `<div class="row"><span class="k">Replan tot</span><span class="v"><b>${a2.total_replans}</b></span></div>`})}
         ${evidenceCard('cf', a3, {evidenceId:'A3', total: a3.total, per_run: a3.per_run, samples: a3Samples,
+          detail: a3.detail,
           extraRows: a3EdgesRows ? `<div class="row"><span class="k">Edge</span><span class="v"><table><tr><th>from</th><th>to</th><th>#</th></tr>${a3EdgesRows}</table></span></div>` : ''})}
+        ${evidenceCard('cf', a4, {evidenceId:'A4', detail: a4.detail,
+          extraRows:`<div class="row"><span class="k">Runs</span><span class="v">${a4agg.n_runs}</span></div>
+                     <div class="row"><span class="k">Steps</span><span class="v">min ${a4agg.steps.min} · avg ${a4agg.steps.mean.toFixed(1)} · max ${a4agg.steps.max}</span></div>
+                     <div class="row"><span class="k">Esiti</span><span class="v"><table>${outcomesRows}</table></span></div>`})}
       </div>
-      <!-- Nota: A4 (metriche di percorso) e' un'evidenza derivata (funzione
-           aggregata sulla trace, non una sonda con eventi propri). Le stesse
-           metriche compaiono qui sotto nella sezione "Aggregazione multi-run",
-           che e' la loro forma naturale. -->
     </div>
     <div class="section"><h2><span class="macro-tag cf">CF</span> Aggregazione multi-run</h2>
       <div class="card2"><table>

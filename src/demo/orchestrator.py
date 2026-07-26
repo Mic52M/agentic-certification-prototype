@@ -39,8 +39,9 @@ def _needs_metrics_first(state: IncidentState) -> bool:
 def _has_any_investigation(state: IncidentState) -> bool:
     return bool(state.workspace.findings_logs) or bool(state.workspace.findings_metrics)
 
-
+#Andare nel dettaglio del cotnrol flow delle metriche, per bea flow cercare di derivarlo dalle altre due, classificazione delle evidenze, nel frattempo dare un occhiata al behaviural flow, oltre al contesto ci sono anche gli store, su langgraph, avrebbe senso studiare dei leakge da quel punto li la memoria persistente, tutti gli agenti possono accedersi 
 # Le "regole" sono predicati puri. Non emettono eventi: quello lo fa
+
 # l'orchestrator_node dopo aver applicato la regola.
 ROUTING_RULES: list[tuple[Callable[[IncidentState], bool], str, str]] = [
     # 1. incident ancora da leggere

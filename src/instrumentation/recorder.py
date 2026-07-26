@@ -1,4 +1,4 @@
-"""Recorder: façade con cui il codice di dominio emette eventi.
+"""
 
 L'obiettivo è tenere la business logic PULITA: gli agenti e l'orchestratore
 non conoscono JSONL, canali AgentLeak, né UI live. Chiamano metodi ad alto

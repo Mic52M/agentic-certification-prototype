@@ -22,6 +22,7 @@ import statistics
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
+from . import cf_metrics
 from .events import ChannelId, EventKind, MacroCategory
 from .store import ExperimentStore
 
@@ -85,8 +86,16 @@ class Aggregator:
     del dict è documentata in `ARCHITECTURE_OBSERVABILITY.md`.
     """
 
-    def __init__(self, store: ExperimentStore) -> None:
+    def __init__(self, store: ExperimentStore,
+                 declared_spec: dict[str, Any] | None = None) -> None:
+        """
+        declared_spec: topologia e regole DICHIARATE del sistema, usate per le
+        metriche di conformance (edge ammessi, regole di routing, n. nodi).
+        Se assente, le metriche di conformance restano calcolabili ma senza
+        riferimento (coverage e conformance non hanno denominatore).
+        """
         self.store = store
+        self.spec = declared_spec or {}
 
     # ---------------------------------------------------------------
     # Helpers
@@ -121,7 +130,17 @@ class Aggregator:
         # A4 — metriche di percorso per run
         a4_per_run: dict[str, dict[str, Any]] = {}
 
+        # --- strutture per le METRICHE DI DETTAGLIO (cf_metrics) -----------
+        det_decisions: dict[str, list[dict]] = {}     # A1
+        det_plans: dict[str, list[dict]] = {}         # A2
+        det_edges: dict[str, list[tuple[str, str]]] = {}   # A3
+        det_agent_seq: dict[str, list[str]] = {}      # A2/A4
+
         for run_id, events in by_run.items():
+            det_decisions[run_id] = []
+            det_plans[run_id] = []
+            det_edges[run_id] = []
+            det_agent_seq[run_id] = []
             n_a1 = n_a2 = n_replan = n_a3 = 0
             tool_calls = 0
             errors = 0
@@ -140,8 +159,23 @@ class Aggregator:
                             "meta": ev.get("metadata", {}),
                         })
                     tgt = ev.get("target_component")
+                    md = ev.get("metadata", {}) or {}
+                    # dettaglio A1: decisione completa di contesto e alternative
+                    det_decisions[run_id].append({
+                        "target": tgt,
+                        "reason": md.get("reason", ""),
+                        "alternatives": md.get("alternatives") or [],
+                        "step": md.get("step"),
+                        "context_keys": md.get("context_snapshot_keys") or [],
+                    })
                     if tgt:
                         a1_targets[tgt] += 1
+                    # dettaglio A3/A4: arco osservato + sequenza agenti
+                    if tgt:
+                        det_edges[run_id].append(("orchestrator", str(tgt)))
+                        if tgt not in ("__end__", "END"):
+                            det_agent_seq[run_id].append(str(tgt))
+                            det_edges[run_id].append((str(tgt), "orchestrator"))
                     # A3: gli handoff dell'orchestratore verso i nodi agente
                     # sono derivati dagli orchestrator_decision (target != END).
                     if tgt and tgt not in ("__end__", "END"):
@@ -159,10 +193,16 @@ class Aggregator:
                         a3_edges[("orchestrator", tgt)] += 1
                 elif k == EventKind.PLANNING_SPAN.value:
                     n_a2 += 1
+                    md = ev.get("metadata", {}) or {}
+                    det_plans[run_id].append({
+                        "steps": md.get("plan") or [],
+                        "duration_ms": ev.get("duration_ms", 0) or 0,
+                        "updated": bool(md.get("updated")),
+                    })
                     if len(a2_samples) < 10:
                         a2_samples.append({
                             "run_id": run_id, "summary": ev.get("payload_summary"),
-                            "meta": ev.get("metadata", {}),
+                            "meta": md,
                         })
                 elif k == EventKind.REPLANNING.value:
                     n_replan += 1
@@ -179,6 +219,8 @@ class Aggregator:
                         })
                     if ev.get("source_component") and ev.get("target_component"):
                         a3_edges[(ev["source_component"], ev["target_component"])] += 1
+                        det_edges[run_id].append(
+                            (str(ev["source_component"]), str(ev["target_component"])))
                 elif k == EventKind.TOOL_CALL.value:
                     tool_calls += 1
                 elif k == EventKind.ERROR.value:
@@ -200,6 +242,11 @@ class Aggregator:
                 "handoffs": n_a3,
             }
 
+        # --- METRICHE DI DETTAGLIO -----------------------------------------
+        declared_rules = self.spec.get("rules")
+        declared_edges = [tuple(e) for e in self.spec.get("edges", [])] or None
+        declared_nodes = self.spec.get("n_nodes")
+
         return {
             "A1_orchestrator_decisions": {
                 "name": "A1 — Decisioni dell'orchestratore",
@@ -209,6 +256,7 @@ class Aggregator:
                 "total": sum(a1_per_run.values()),
                 "distribution_of_targets": dict(a1_targets),
                 "samples": a1_samples,
+                "detail": cf_metrics.a1_details(det_decisions, declared_rules),
             },
             "A2_planning_spans": {
                 "name": "A2 — Spans di pianificazione (planner + replanning)",
@@ -219,6 +267,7 @@ class Aggregator:
                 "total_plans": sum(a2_per_run.values()),
                 "total_replans": sum(replan_per_run.values()),
                 "samples": a2_samples,
+                "detail": cf_metrics.a2_details(det_plans, replan_per_run, det_agent_seq),
             },
             "A3_handoffs": {
                 "name": "A3 — Handoff tra agenti",
@@ -229,6 +278,7 @@ class Aggregator:
                 "edges": [{"from": s, "to": t, "count": c}
                           for (s, t), c in a3_edges.most_common()],
                 "samples": a3_samples,
+                "detail": cf_metrics.a3_details(det_edges, declared_edges),
             },
             "A4_path_metrics": {
                 "name": "A4 — Metriche di percorso (step count, completion, errori)",
@@ -236,6 +286,7 @@ class Aggregator:
                 "how": "conteggi e statistiche sull'insieme degli eventi della run",
                 "per_run": a4_per_run,
                 "aggregate": self._path_aggregate(a4_per_run),
+                "detail": cf_metrics.a4_details(a4_per_run, det_agent_seq, declared_nodes),
             },
         }
 

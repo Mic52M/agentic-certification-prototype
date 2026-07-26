@@ -129,8 +129,11 @@ def run_experiment(
         if i < n_runs and delay_s > 0:
             time.sleep(delay_s)
 
-    # Aggregazione a fine batch
-    agg = Aggregator(store).build_and_save()
+    # Aggregazione a fine batch. Passiamo la topologia/regole DICHIARATE così
+    # l'aggregator può calcolare le metriche di conformance (coverage delle
+    # regole di routing, conformità del grafo di handoff, dead branches).
+    from .topology import declared_spec
+    agg = Aggregator(store, declared_spec=declared_spec()).build_and_save()
     result = {
         "experiment_id": session.experiment.experiment_id,
         "meta": session.experiment.to_dict(),

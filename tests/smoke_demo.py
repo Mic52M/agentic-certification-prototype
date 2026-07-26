@@ -9,6 +9,7 @@ schema evento senza consumare crediti API.
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -83,6 +84,64 @@ def test_infrastructure():
     print("ok  behavioral aggregation")
 
 
+def test_cf_metrics():
+    """Verifica le funzioni di calcolo delle metriche di dettaglio CF su
+    input costruiti a mano (nessuna dipendenza dal modello)."""
+    from src.instrumentation import cf_metrics as cm
+
+    # --- utility statistiche ---
+    assert cm.entropy_norm(Counter({"a": 10})) == 0.0            # concentrata
+    assert abs(cm.entropy_norm(Counter({"a": 5, "b": 5})) - 1.0) < 1e-9  # uniforme
+    w = cm.wilson_interval(4, 4)
+    assert w["p"] == 1.0 and w["lo"] < 1.0 and w["hi"] == 1.0, w  # non degenera
+
+    # --- A1: coverage e dead rules ---
+    rules = [{"index": 0, "target": "a", "reason": "r0"},
+             {"index": 1, "target": "b", "reason": "r1"},
+             {"index": 2, "target": "c", "reason": "r2"}]
+    decisions = {"run1": [
+        {"target": "a", "reason": "r0", "alternatives": [], "context_keys": ["k1"]},
+        {"target": "b", "reason": "r1", "alternatives": ["c"], "context_keys": ["k1", "k2"]},
+    ]}
+    a1 = cm.a1_details(decisions, rules)
+    assert abs(a1["A1_1_rule_coverage"]["value"] - 2/3) < 1e-9
+    assert len(a1["A1_1_rule_coverage"]["dead_rules"]) == 1
+    assert a1["A1_1_rule_coverage"]["dead_rules"][0]["reason"] == "r2"
+    assert a1["A1_3_routing_determinism"]["value"] == 1.0       # firme distinte
+    assert a1["A1_4_branching_factor"]["forced_decisions"] == 1
+    print("ok  cf_metrics A1 (coverage, dead rules, determinism, branching)")
+
+    # --- A3: conformance e coverage del grafo ---
+    declared = [("orchestrator", "x"), ("x", "orchestrator"),
+                ("orchestrator", "y"), ("y", "orchestrator")]
+    observed = {"run1": [("orchestrator", "x"), ("x", "orchestrator"),
+                         ("orchestrator", "z")]}   # z non dichiarato
+    a3 = cm.a3_details(observed, declared)
+    conf = a3["A3_1_topology_conformance"]
+    assert conf["observed_edges"] == 3
+    assert len(conf["unexpected_edges"]) == 1                    # orchestrator->z
+    assert abs(conf["value"] - 2/3) < 1e-9
+    cov = a3["A3_2_edge_coverage"]
+    assert abs(cov["value"] - 2/4) < 1e-9                        # 2 dei 4 dichiarati
+    print("ok  cf_metrics A3 (conformance, edge coverage)")
+
+    # --- A4: completion, varianti, ciclomatica ---
+    per_run = {
+        "r1": {"steps": 10, "tool_calls": 4, "errors": 0, "duration_ms": 100, "outcome": "completed"},
+        "r2": {"steps": 12, "tool_calls": 4, "errors": 1, "duration_ms": 120, "outcome": "completed"},
+        "r3": {"steps": 11, "tool_calls": 2, "errors": 0, "duration_ms": 110, "outcome": "error"},
+    }
+    seqs = {"r1": ["a", "b"], "r2": ["a", "b"], "r3": ["a", "c"]}
+    a4 = cm.a4_details(per_run, seqs, declared_n_nodes=5)
+    assert a4["A4_2_completion_rate"]["completed"] == 2
+    assert abs(a4["A4_2_completion_rate"]["value"] - 2/3) < 1e-9
+    assert a4["A4_4_trace_variants"]["n_variants"] == 2          # (a,b) e (a,c)
+    assert abs(a4["A4_3_tool_error_rate"]["value"] - 1/10) < 1e-9
+    assert a4["A4_5_cyclomatic_complexity"]["value"] > 0
+    print("ok  cf_metrics A4 (completion+CI, variants, error rate, cyclomatic)")
+
+
 if __name__ == "__main__":
     test_infrastructure()
+    test_cf_metrics()
     print("\nALL DEMO SMOKE TESTS PASSED")
