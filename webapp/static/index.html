@@ -263,6 +263,47 @@
   .ch .warn{color:var(--yellow);font-size:11px;margin-top:4px}
   .kbd{background:#202832;padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px}
 
+  /* === Behavioural: blocco teorico (premessa concettuale in dashboard) === */
+  .theory{background:linear-gradient(180deg,#141a24,#0e131a);
+      border:1px solid var(--border);border-radius:12px;margin-bottom:16px;
+      overflow:hidden}
+  .theory > summary{list-style:none;cursor:pointer;padding:14px 18px;
+      display:flex;align-items:center;gap:10px;user-select:none;
+      background:linear-gradient(180deg,#161e2b,#111621)}
+  .theory > summary::-webkit-details-marker{display:none}
+  .theory > summary .chev{color:var(--bh);font-size:12px;transition:transform .2s;width:14px;text-align:center}
+  .theory[open] > summary .chev{transform:rotate(90deg)}
+  .theory > summary .tt{font-size:14px;font-weight:700;color:var(--bh);
+      text-transform:uppercase;letter-spacing:.7px}
+  .theory > summary .hint{color:var(--dim);font-size:11.5px;margin-left:auto;font-weight:400}
+  .theory .tbody{padding:16px 20px 22px;line-height:1.65;color:var(--txt);font-size:13px}
+  .theory h4{margin:22px 0 8px;font-size:13px;color:var(--bh);
+      text-transform:uppercase;letter-spacing:.6px;font-weight:700;
+      border-left:3px solid var(--bh);padding-left:10px}
+  .theory h4:first-child{margin-top:0}
+  .theory h5{margin:14px 0 4px;font-size:12.5px;color:var(--txt);font-weight:700}
+  .theory p{margin:0 0 10px;color:var(--dim)}
+  .theory p b, .theory li b{color:var(--txt)}
+  .theory p i, .theory li i{color:var(--txt);font-style:italic}
+  .theory ul{margin:6px 0 12px;padding-left:20px;color:var(--dim)}
+  .theory li{margin-bottom:6px;line-height:1.55}
+  .theory .callout{background:#0f141b;border:1px solid var(--border);
+      border-left:3px solid var(--bh);border-radius:8px;padding:10px 14px;
+      margin:12px 0;font-size:12.5px;color:var(--dim)}
+  .theory .callout b{color:var(--bh)}
+  .theory .term{background:#1a2029;padding:1px 6px;border-radius:4px;
+      font-family:'SF Mono',monospace;font-size:11.5px;color:var(--txt)}
+  .theory .regimes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 14px}
+  @media (max-width:900px){.theory .regimes{grid-template-columns:1fr}}
+  .theory .rg{background:#0f141b;border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .theory .rg .num{color:var(--bh);font-weight:700;font-size:11px;letter-spacing:.5px}
+  .theory .rg .nm{color:var(--txt);font-weight:600;font-size:13px;margin:3px 0}
+  .theory .rg .dc{color:var(--dim);font-size:11.5px;line-height:1.5}
+  .theory .refs{border-top:1px solid var(--border);padding-top:12px;margin-top:16px}
+  .theory .refs li{font-size:11.5px;color:var(--dim2)}
+  .theory .refs a{color:var(--bh);text-decoration:none}
+  .theory .refs a:hover{text-decoration:underline}
+
   /* === Behavioural: overview macro + 4 sezioni con schema uniforme === */
   .bh-overview{background:linear-gradient(180deg,#1a1424,#131018);
       border:1px solid var(--border);border-left:3px solid var(--bh);
@@ -1603,6 +1644,228 @@ function renderBehavioral(bh) {
   }
 
   return `
+    <!-- ============ Blocco teorico ============ -->
+    <details class="theory">
+      <summary>
+        <span class="chev">▶</span>
+        <span class="tt">📖 Cornice teorica — cos'è la macro Behavioural</span>
+        <span class="hint">click per espandere · lettura ~5 min</span>
+      </summary>
+      <div class="tbody">
+
+        <h4>Cos'è un'evidenza (in generale)</h4>
+        <p>Nel framework di certificazione che stiamo estendendo, un'<b>evidenza</b> è
+        un dato osservabile raccolto a un punto specifico dell'architettura
+        (una <b>sonda</b>) che concorre a supportare o smentire una
+        <b>proprietà non-funzionale</b> del sistema. Il pattern è
+        <i>claim → evidence → verdict</i>: si dichiara una proprietà, si
+        raccoglie evidenza tramite sonde, si emette un verdetto motivato.</p>
+        <p>Le evidenze si raggruppano in <b>macro-dimensioni di ricerca</b>
+        che catturano <i>aspetti diversi</i> del comportamento del sistema:
+        <span class="term">Control Flow</span> (come si articola l'orchestrazione),
+        <span class="term">Data Flow</span> (come circolano i dati tra i canali),
+        <span class="term">Behavioural</span> (come si comportano nel tempo le
+        traiettorie di esecuzione). Ogni macro raccoglie un piccolo insieme di
+        evidenze operative, con radici in letteratura consolidata.</p>
+
+        <div class="callout">
+          <b>Distinzione chiave.</b> Una sonda produce <i>dati grezzi</i>
+          (eventi tipizzati nella trace). Una metrica è la <i>funzione</i>
+          che aggrega quei dati in un numero interpretabile. Un verdetto è la
+          <i>decisione</i> — se la proprietà è supportata — basata sulla
+          metrica e su una soglia dichiarata. Sonda ≠ metrica ≠ verdetto.
+        </div>
+
+        <h4>Cos'è la macro Behavioural (e perché è a sé)</h4>
+        <p>Nel software classico il comportamento è definito dal contratto
+        input→output: se al sistema dai <i>x</i> e restituisce <i>y</i>, il
+        comportamento è <i>y</i>. Come ci sia arrivato non è ispezionabile e
+        neppure interessante — la funzione è una scatola nera.</p>
+        <p>Nel setting agentico questa astrazione si rompe per tre ragioni
+        strutturali:</p>
+        <ul>
+          <li><b>Il "come" è la parte non deterministica.</b>
+            L'output finale può essere ragionevole anche se la traiettoria che
+            l'ha prodotto è disordinata, incoerente, o passa per stati anomali.
+            Al contrario, l'output può essere sbagliato in modi che dalla
+            singola risposta non sono diagnosticabili.</li>
+          <li><b>La composizione è locale, non globale.</b>
+            Ogni agente decide sulla base di ciò che vede in quel momento.
+            Non c'è una specifica globale contro cui confrontare la traiettoria
+            — c'è solo l'accumularsi di decisioni locali che devono,
+            complessivamente, essere coerenti fra loro.</li>
+          <li><b>Il portatore semantico non è la run singola.</b>
+            Data la non-riproducibilità intrinseca degli LLM (batching
+            non-associativo su GPU, MoE routing, ecc.), una singola run è un
+            campione, non un'osservazione. Il "comportamento" è la
+            <i>famiglia di traiettorie</i> che il sistema produce a fronte
+            dello stesso input.</li>
+        </ul>
+
+        <div class="callout">
+          <b>Salto ontologico.</b> Da questo discende la tesi centrale della
+          macro: <i>il comportamento è un oggetto probabilistico su
+          traiettorie, non un oggetto deterministico su singole esecuzioni.</i>
+          Le 4 evidenze della macro Behavioural sono, ciascuna, un modo di
+          rendere osservabile una faccia di questo oggetto.
+        </div>
+
+        <h4>I tre regimi di osservazione della macro</h4>
+        <p>Il comportamento si osserva a tre livelli, distinti nella
+        letteratura recente di agent evaluation (Confident AI 2026,
+        Braintrust 2026, LangSmith):</p>
+        <div class="regimes">
+          <div class="rg">
+            <div class="num">REGIME 1 · SUBSTRATO</div>
+            <div class="nm">Traccia singola</div>
+            <div class="dc">La sequenza gerarchica di eventi di una run: chi
+              ha chiamato chi, in che ordine, con quale contesto. Non produce
+              giudizi: è la <i>materia prima</i>. Fondamento tecnico:
+              <i>span-per-tick tracing</i> ereditato dal distributed tracing
+              (OpenTelemetry, LangSmith, Honeycomb) adattato agli agenti.</div>
+          </div>
+          <div class="rg">
+            <div class="num">REGIME 2 · COERENZA</div>
+            <div class="nm">Derivata per-run</div>
+            <div class="dc">Data una traiettoria completa, si chiede se le sue
+              parti stanno insieme. Due sotto-domande complementari:
+              <b>state ↔ output</b> (ciò che il sistema decide arriva coerente
+              all'utente?) e <b>intention ↔ behavior</b> (le decisioni prese
+              lungo la traiettoria sono coerenti fra loro?). Radici: framework
+              di <i>trajectory evaluation</i> con nozioni di
+              <i>groundedness</i> e <i>context adherence</i>.</div>
+          </div>
+          <div class="rg">
+            <div class="num">REGIME 3 · DISTRIBUZIONE</div>
+            <div class="nm">Aggregata cross-run</div>
+            <div class="dc">Ripetendo lo stesso input, quanto è stabile ciò
+              che il sistema produce? Il portatore non è più la singola
+              traiettoria ma la <i>distribuzione</i> delle traiettorie. È il
+              regime in cui ha senso parlare di <i>probabilità con
+              confidenza calibrata</i>. Radici: <i>behavioral variance</i>
+              (Bouthillier et al.), <i>statistical model checking</i>
+              (Legay et al.).</div>
+          </div>
+        </div>
+        <p>I tre regimi sono in ordine di <b>crescente astrazione dal
+        singolo</b>. Il regime 1 non ha bisogno di ripetizioni; il regime 2 ne
+        può usare una sola; il regime 3 ha senso solo con N ≥ ~5.</p>
+
+        <h4>Le 4 evidenze Behavioural, mappate sui regimi</h4>
+
+        <h5>C1 · Trace end-to-end (Regime 1 — substrato)</h5>
+        <p>Tutti gli eventi di una run, riordinati cronologicamente, con la
+        struttura gerarchica agente→evento. Nel prototipo è la timeline
+        completa esposta come milestone chip (decisioni chiave estratte) e
+        timeline collassabile. È il <b>substrato necessario</b> per C2, C3,
+        C4: senza di esso le altre tre non esistono.</p>
+
+        <h5>C2 · Coerenza state ↔ output (Regime 2 — per-run)</h5>
+        <p>Confronto tra lo stato consolidato del sistema (i campi chiave
+        <span class="term">classification</span>,
+        <span class="term">priority</span>,
+        <span class="term">affected_service</span>) e il testo dell'output
+        finale verso l'utente. Rende visibile se il sistema comunica ciò che
+        effettivamente ha deciso internamente. <b>Oggi è implementata come
+        proxy lessicale</b>: verifica presenza esatta dei valori nel testo.
+        Non è entailment semantico — è un proxy conservativo (sottostima
+        quando il sistema parafrasa).</p>
+
+        <h5>C3 · Sequenza decisioni (Regime 2 — per-run)</h5>
+        <p>Ordine cronologico dei <span class="term">decision_point</span>
+        emessi dagli agenti lungo la traiettoria. Rende visibile la catena
+        di scelte che ha portato all'output. Cattura l'idea di
+        <b>intention–behavior consistency</b> studiata nei sistemi
+        multi-agente recenti: se il planner decide "servizio X" e il metrics
+        analyst investiga "servizio Y" senza motivo, l'incongruenza è nella
+        sequenza. <b>Oggi produciamo la materia prima</b> (le decisioni sono
+        ispezionabili), non ancora giudizi automatici di coerenza.</p>
+
+        <h5>C4 · Stabilità comportamentale su N run (Regime 3 — cross-run)</h5>
+        <p>Tre distribuzioni aggregate a fine batch: <b>firme di traiettoria</b>
+        (sequenza degli agenti attivati), <b>classification finale</b>,
+        <b>priority finale</b>. Ognuna con <b>entropia normalizzata</b>
+        [0,1] come indice sintetico: 0 = concentrata su un valore
+        (perfettamente stabile), 1 = uniforme (massima varianza).</p>
+
+        <div class="callout">
+          <b>Perché C4 è la più importante teoricamente.</b> È l'unica
+          evidenza che vive nel regime probabilistico. È qui che si aggancia
+          il discorso di certificazione con confidenza calibrata: se
+          l'entropia della classificazione è alta, non puoi dire "il sistema
+          classifica il ticket X come Y con confidenza c" — devi dire "come Y
+          con probabilità p, come Z con probabilità 1−p". Rende operativo il
+          salto ontologico enunciato sopra.
+        </div>
+
+        <h4>Limiti attuali e piste di lavoro</h4>
+        <p>Dichiariamoli in modo trasparente. Non sono difetti da nascondere:
+        sono la mappa di ciò che va approfondito prima di consolidare la
+        macro.</p>
+        <ul>
+          <li><b>C2 e C3 sono sonde grezze, non metriche.</b> C2 dice se un
+            valore compare nel testo; C3 elenca decisioni. Manca una metrica
+            sintetica di coerenza. Direzioni possibili: LLM-as-a-Judge
+            (Zheng et al., MT-Bench), regole strutturali dichiarate,
+            distanza semantica via embedding.</li>
+          <li><b>C3 non emette giudizi di coerenza.</b> Ha la materia prima
+            ma non la usa. Passo naturale: <i>pairwise consistency check</i>
+            fra decisioni sequenziali, tasso di violazione delle dipendenze.</li>
+          <li><b>C4 misura solo tre dimensioni.</b> Firma, classification,
+            priority. In letteratura la <i>behavioral variance</i> si estende
+            a distribuzione dei tool chiamati, delle latenze, della lunghezza
+            dell'output, delle citazioni delle fonti.</li>
+          <li><b>Nessuna metrica cross-regime.</b> C2 e C4 potrebbero
+            comporsi: "la coerenza state↔output è stabile su N run?" — cioè
+            la varianza <i>della</i> metrica di coerenza. Non ancora esplorato.</li>
+          <li><b>Il rapporto con Control Flow e Data Flow non è formalizzato.</b>
+            La traiettoria comportamentale è, in parte, costruita sopra CF e
+            DF. Un ripensamento serio partirebbe da qui: quali metriche
+            behavioural sono <i>derivate</i> (funzioni di metriche CF+DF) e
+            quali sono <i>originali</i> (richiedono sonde proprie)?
+            C4 è genuinamente originale perché vive nel cross-run; C2/C3
+            probabilmente sono derivabili.</li>
+        </ul>
+
+        <div class="callout">
+          <b>Da fissare prima di riscrivere.</b> Le metriche behavioural,
+          tutte, dovrebbero essere pensate come <i>funzionali su
+          distribuzioni di run</i>. Anche C2 e C3, che oggi sono per-run,
+          diventano più forti se calcolate come tasso di violazione su N —
+          la stessa mossa che abbiamo fatto per il completion rate in Control
+          Flow (Wilson score interval).
+        </div>
+
+        <div class="refs">
+          <h5>Riferimenti principali</h5>
+          <ul>
+            <li>Ashmore R., Calinescu R., Paterson C. (2021).
+              <a href="https://arxiv.org/abs/1905.04223" target="_blank">
+              Assuring the Machine Learning Lifecycle</a>, ACM CSUR — pattern
+              claim/evidence/verdict per sistemi ML.</li>
+            <li>Legay A., Delahaye B., Bensalem S. (2010).
+              <i>Statistical Model Checking: An Overview</i>, RV — verifica
+              probabilistica con confidenza calibrata.</li>
+            <li>Bouthillier X. et al. (2021).
+              <a href="https://arxiv.org/abs/2103.03098" target="_blank">
+              Accounting for Variance in Machine Learning Benchmarks</a>,
+              MLSys — quantificazione delle sorgenti di varianza.</li>
+            <li>Confident AI (2026).
+              <a href="https://www.confident-ai.com/blog/llm-agent-evaluation-complete-guide" target="_blank">
+              LLM Agent Evaluation Metrics: Tool Calling, Task Completion,
+              Reasoning, Trace-Based Evals</a> — framework di trajectory
+              evaluation.</li>
+            <li>Zheng L. et al. (2023). <i>Judging LLM-as-a-Judge with
+              MT-Bench and Chatbot Arena</i>, NeurIPS — LLM come oracolo di
+              coerenza semantica.</li>
+            <li>Bena N., Anisetti M., Damiani E., Della Bruna A., Yeun C. Y.,
+              Ardagna C. A. (2026). <i>A Certification Scheme for LLM-Based
+              Applications</i>, ACM TIST — il framework che stiamo estendendo.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
     <!-- Header di macro: cos'è la Behavioural e come si articolano le 4 evidenze -->
     <div class="bh-overview">
       <div class="title">Macro comportamentale — come si compone</div>
