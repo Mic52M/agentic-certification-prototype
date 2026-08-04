@@ -397,6 +397,27 @@
   .so-cov.ok{background:#152318;color:var(--green);border:1px solid var(--green)}
   .so-cov.mid{background:#2e2510;color:var(--yellow);border:1px solid var(--yellow)}
   .so-cov.no{background:#2d0f0f;color:var(--red);border:1px solid var(--red)}
+  /* Triade coerente / accettabile / inaccettabile (allineamento 2026-07-29) */
+  .verdict{padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;margin-left:8px}
+  .verdict.coherent   {background:#152318;color:var(--green);border:1px solid var(--green)}
+  .verdict.acceptable {background:#2e2510;color:var(--yellow);border:1px solid var(--yellow)}
+  .verdict.unacceptable{background:#2d0f0f;color:var(--red);border:1px solid var(--red)}
+  .triad-legend{background:#0f141b;border:1px solid var(--border);border-left:3px solid var(--bh);
+      border-radius:8px;padding:10px 14px;margin:8px 0 12px;font-size:11.5px;line-height:1.55;color:var(--dim)}
+  .triad-legend .lb{color:var(--txt);font-weight:600;text-transform:uppercase;
+      letter-spacing:.4px;font-size:10px;margin-right:4px}
+  .triad-legend .row{margin:3px 0}
+  .triad-summary{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .triad-summary .tile{display:flex;flex-direction:column;gap:2px;min-width:130px}
+  .triad-summary .tile .num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .triad-summary .tile.coherent   .num{color:var(--green)}
+  .triad-summary .tile.acceptable .num{color:var(--yellow)}
+  .triad-summary .tile.unacceptable .num{color:var(--red)}
+  .triad-summary .tile .lb{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim)}
+  .triad-summary .ci{color:var(--dim);font-size:12px;line-height:1.4}
+  .triad-summary .ci b{color:var(--txt)}
   .so-panel .cols{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start}
   .so-panel .state-chips{display:flex;flex-direction:column;gap:6px}
   .so-chip{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;
@@ -1507,13 +1528,20 @@ function renderBehavioral(bh) {
   }).join('');
 
   // ---------- C2: state <-> output con chip verdi/rossi + highlight -------
+  // Il verdetto per-run arriva dall'aggregator (c2.detail.per_run_verdicts):
+  // classificazione tri-livello coherent/acceptable/unacceptable secondo la
+  // policy dichiarata in src/demo/behavioural_policy.py.
+  const c2verd = (c2.detail || {}).per_run_verdicts || {};
   const soPanels = Object.entries(c2.per_run||{}).map(([rid,r],i)=>{
     const fields = r.state_key_fields || {};
     const covered = new Set(r.fields_covered_in_output || []);
     const missing = new Set(r.fields_missing_from_output || []);
     const total = ['classification','priority','affected_service'].filter(f => fields[f]).length;
     const nCov = covered.size;
-    const covCls = total===0 ? 'no' : (nCov===total ? 'ok' : (nCov>0 ? 'mid' : 'no'));
+    const v = c2verd[rid] || {};
+    const verdict = v.verdict || 'unacceptable';
+    const verdictLabel = {coherent:'COERENTE', acceptable:'ACCETTABILE',
+                          unacceptable:'INACCETTABILE'}[verdict] || 'INACCETTABILE';
     const chips = ['classification','priority','affected_service'].map(f => {
       const v = fields[f];
       const state = !v ? 'na' : covered.has(f) ? 'in' : missing.has(f) ? 'out' : 'na';
@@ -1532,8 +1560,9 @@ function renderBehavioral(bh) {
     }
     return `<div class="so-panel">
       <div class="head">
-        <div><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span></div>
-        <span class="so-cov ${covCls}">${nCov}/${total} campi coperti</span>
+        <div><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span>
+          <span class="verdict ${verdict}">${verdictLabel}</span></div>
+        <span class="dim" style="font-size:12px">${nCov}/${total} campi · coverage ${((v.coverage||0)*100).toFixed(0)}%</span>
       </div>
       <div class="cols">
         <div class="state-chips">${chips}</div>
@@ -1541,6 +1570,30 @@ function renderBehavioral(bh) {
       </div>
     </div>`;
   }).join('');
+
+  // ---------- C2: riepilogo aggregato cross-run + legenda triade ----------
+  const c2d = c2.detail || {};
+  const dist = (c2d.C2_1_verdict_distribution || {}).distribution || {};
+  const okRate = c2d.C2_3_acceptable_rate || {};
+  const cohRate = c2d.C2_4_coherent_rate || {};
+  const nC = dist.coherent || 0, nA = dist.acceptable || 0, nU = dist.unacceptable || 0;
+  const nT = nC + nA + nU;
+  const c2legend = `<div class="triad-legend">
+    <div class="row"><span class="lb">Coerente</span> tutti i campi chiave dello stato presenti nell'output finale (coverage = 100%)</div>
+    <div class="row"><span class="lb">Accettabile</span> almeno metà dei campi presenti (50% ≤ coverage &lt; 100%): comportamento parziale ma non contraddittorio</div>
+    <div class="row"><span class="lb">Inaccettabile</span> meno della metà (coverage &lt; 50%): l'output è scollegato dallo stato consolidato</div>
+  </div>`;
+  const c2summary = nT === 0 ? '' : `<div class="triad-summary">
+    <div class="tile coherent"><span class="num">${nC}</span><span class="lb">coerenti</span></div>
+    <div class="tile acceptable"><span class="num">${nA}</span><span class="lb">accettabili</span></div>
+    <div class="tile unacceptable"><span class="num">${nU}</span><span class="lb">inaccettabili</span></div>
+    <div class="ci">
+      Tasso ≥ accettabile: <b>${(okRate.value*100).toFixed(0)}%</b>
+      <span class="dim">(IC 95% ${(okRate.ci_lo*100).toFixed(0)}–${(okRate.ci_hi*100).toFixed(0)}%, n=${okRate.n_runs})</span><br>
+      Tasso coerente: <b>${(cohRate.value*100).toFixed(0)}%</b>
+      <span class="dim">(IC 95% ${(cohRate.ci_lo*100).toFixed(0)}–${(cohRate.ci_hi*100).toFixed(0)}%, n=${cohRate.n_runs})</span>
+    </div>
+  </div>`;
 
   // ---------- C3: sequenza decisioni come "flusso" leggibile --------------
   const decPanels = Object.entries(c3.per_run||{}).map(([rid,r],i)=>{
@@ -1906,6 +1959,8 @@ function renderBehavioral(bh) {
       ${bhHeader('C2', `${nRuns} coppie state/output`)}
       ${bhSchema('C2', c2_cov)}
       <div class="bh-body">
+        ${c2legend}
+        ${c2summary}
         ${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}
       </div>
     </details>

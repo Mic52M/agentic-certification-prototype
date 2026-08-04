@@ -22,7 +22,7 @@ import statistics
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
-from . import cf_metrics
+from . import bh_metrics, cf_metrics
 from .events import ChannelId, EventKind, MacroCategory
 from .store import ExperimentStore
 
@@ -87,15 +87,23 @@ class Aggregator:
     """
 
     def __init__(self, store: ExperimentStore,
-                 declared_spec: dict[str, Any] | None = None) -> None:
+                 declared_spec: dict[str, Any] | None = None,
+                 bh_classify_c2=None) -> None:
         """
         declared_spec: topologia e regole DICHIARATE del sistema, usate per le
         metriche di conformance (edge ammessi, regole di routing, n. nodi).
         Se assente, le metriche di conformance restano calcolabili ma senza
         riferimento (coverage e conformance non hanno denominatore).
+
+        bh_classify_c2: funzione coverage -> "coherent"|"acceptable"|"unacceptable"
+        (dalla policy dichiarata in src/demo/behavioural_policy.py). Iniettata
+        per tenere l'aggregator disaccoppiato dal dominio; se None, fallback
+        binario a coherent/unacceptable con soglia 0.5.
         """
         self.store = store
         self.spec = declared_spec or {}
+        self.bh_classify_c2 = bh_classify_c2 or (
+            lambda cov: "coherent" if cov >= 0.5 else "unacceptable")
 
     # ---------------------------------------------------------------
     # Helpers
@@ -540,8 +548,12 @@ class Aggregator:
                 "name": "C2 — Coerenza state ↔ output (proxy)",
                 "where": "confronto tra stato consolidato del sistema e testo dell'output finale",
                 "how": "proiezione su campi chiave (classification, priority, affected_service); "
-                       "verifica di presenza lessicale nel testo dell'output",
+                       "verifica di presenza lessicale nel testo dell'output; "
+                       "verdetto tri-livello secondo policy dichiarata "
+                       "(coherent / acceptable / unacceptable)",
                 "per_run": state_output_per_run,
+                "detail": bh_metrics.c2_details(state_output_per_run,
+                                                self.bh_classify_c2),
             },
             "C3_decision_coherence": {
                 "name": "C3 — Sequenza decisioni successive (intention ↔ behavior)",

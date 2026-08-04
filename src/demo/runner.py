@@ -131,9 +131,12 @@ def run_experiment(
 
     # Aggregazione a fine batch. Passiamo la topologia/regole DICHIARATE così
     # l'aggregator può calcolare le metriche di conformance (coverage delle
-    # regole di routing, conformità del grafo di handoff, dead branches).
+    # regole di routing, conformità del grafo di handoff, dead branches),
+    # e la policy dichiarata per la triade C2 (coherent/acceptable/unacceptable).
+    from .behavioural_policy import classify_c2
     from .topology import declared_spec
-    agg = Aggregator(store, declared_spec=declared_spec()).build_and_save()
+    agg = Aggregator(store, declared_spec=declared_spec(),
+                     bh_classify_c2=classify_c2).build_and_save()
     result = {
         "experiment_id": session.experiment.experiment_id,
         "meta": session.experiment.to_dict(),
