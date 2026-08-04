@@ -88,22 +88,32 @@ class Aggregator:
 
     def __init__(self, store: ExperimentStore,
                  declared_spec: dict[str, Any] | None = None,
-                 bh_classify_c2=None) -> None:
+                 bh_classify_c2=None,
+                 bh_classify_c3=None,
+                 bh_symptom_map: dict | None = None,
+                 bh_class_to_tags: dict | None = None) -> None:
         """
         declared_spec: topologia e regole DICHIARATE del sistema, usate per le
         metriche di conformance (edge ammessi, regole di routing, n. nodi).
         Se assente, le metriche di conformance restano calcolabili ma senza
         riferimento (coverage e conformance non hanno denominatore).
 
-        bh_classify_c2: funzione coverage -> "coherent"|"acceptable"|"unacceptable"
-        (dalla policy dichiarata in src/demo/behavioural_policy.py). Iniettata
-        per tenere l'aggregator disaccoppiato dal dominio; se None, fallback
-        binario a coherent/unacceptable con soglia 0.5.
+        bh_classify_c2 / bh_classify_c3: funzioni coverage/consistency
+        -> "coherent"|"acceptable"|"unacceptable" dalla policy dichiarata
+        in src/demo/behavioural_policy.py. Iniettate per tenere l'aggregator
+        disaccoppiato dal dominio; fallback binario se None.
+
+        bh_symptom_map, bh_class_to_tags: policy per i check pairwise di C3.
+        Vuote se non passate (i check C3 diventano tutti N/A).
         """
         self.store = store
         self.spec = declared_spec or {}
         self.bh_classify_c2 = bh_classify_c2 or (
             lambda cov: "coherent" if cov >= 0.5 else "unacceptable")
+        self.bh_classify_c3 = bh_classify_c3 or (
+            lambda cons: "coherent" if cons >= 0.5 else "unacceptable")
+        self.bh_symptom_map = bh_symptom_map or {}
+        self.bh_class_to_tags = bh_class_to_tags or {}
 
     # ---------------------------------------------------------------
     # Helpers
@@ -444,8 +454,9 @@ class Aggregator:
 
         # C1 — trace end-to-end (timeline + gerarchia semplificata per run)
         trajectories: list[dict] = []
-        # C3 — sequenza decisioni per run
+        # C3 — sequenza decisioni per run + postmortem correlati per il check3
         decisions_per_run: dict[str, list[dict]] = {}
+        postmortems_per_run: dict[str, list[dict]] = {}
         # C2 — state <-> output proxy (confronto campi chiave)
         state_output_per_run: dict[str, dict[str, Any]] = {}
         # C4 — varianza comportamentale su N run
@@ -479,12 +490,25 @@ class Aggregator:
                         "agent": node_id,
                         "summary": ev.get("payload_summary", ""),
                         "meta": ev.get("metadata", {}),
+                        # payload_redacted contiene 'inputs' (es. primary_symptom
+                        # per il planner): serve al check C3.2 planner ↔ classifier.
+                        "payload_redacted": ev.get("payload_redacted", {}),
                     })
                 elif k == EventKind.STATE_SNAPSHOT.value:
                     md = ev.get("metadata", {}) or {}
                     final_state = md.get("state", final_state) or final_state
                 elif k == EventKind.FINAL_OUTPUT.value:
                     final_output_text = ev.get("payload_summary", "") or ""
+                elif (k == EventKind.TOOL_RESULT.value
+                      and ev.get("tool_name") == "query_postmortems"):
+                    # Cattura i postmortem correlati per il check C3.3.
+                    payload = ev.get("payload_redacted") or {}
+                    result = payload.get("result")
+                    if isinstance(result, list):
+                        postmortems_per_run.setdefault(run_id, []).extend(
+                            {"id": p.get("id"), "tags": p.get("tags") or []}
+                            for p in result if isinstance(p, dict)
+                        )
 
             # signature semplificata della traiettoria per C4 (sequenza di agenti)
             sig = tuple(dict.fromkeys(t["agent"] for t in timeline
@@ -558,9 +582,15 @@ class Aggregator:
             "C3_decision_coherence": {
                 "name": "C3 — Sequenza decisioni successive (intention ↔ behavior)",
                 "where": "ordine cronologico dei decision_point emessi dai vari agenti",
-                "how": "estrazione delle decisioni e loro linearizzazione per ispezione",
+                "how": "3 check pairwise di coerenza fra decisioni (planner ↔ investigatori, "
+                       "planner ↔ classifier, classifier ↔ postmortem); verdetto tri-livello "
+                       "coherent/acceptable/unacceptable secondo policy dichiarata",
                 "per_run": {run_id: {"n_decisions": len(d), "decisions": d}
                             for run_id, d in decisions_per_run.items()},
+                "detail": bh_metrics.c3_details(
+                    decisions_per_run, postmortems_per_run,
+                    self.bh_classify_c3,
+                    self.bh_symptom_map, self.bh_class_to_tags),
             },
             "C4_behavioral_variance": {
                 "name": "C4 — Stabilità comportamentale su N run",

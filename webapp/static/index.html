@@ -444,6 +444,16 @@
   .dec-node .who{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
   .dec-node .lbl{color:var(--bh);font-weight:600;font-size:11px}
   .dec-node .ch{color:var(--txt);font-size:12px}
+  /* C3 · check pairwise chips (planner↔investigatori, ↔classifier, ↔postmortem) */
+  .checks-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px}
+  .check-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;
+      border-radius:12px;font-size:11px;border:1px solid var(--border);
+      background:#1a2029;color:var(--dim)}
+  .check-chip .mk{font-weight:700;font-size:11px}
+  .check-chip.ok{background:#152318;color:var(--green);border-color:var(--green)}
+  .check-chip.no{background:#2d0f0f;color:var(--red);border-color:var(--red)}
+  .check-chip.na{background:#1a2029;color:var(--dim2);border-color:var(--border);opacity:.75}
+  .check-chip .chdet{color:var(--dim2);font-size:10.5px}
 
   /* C4 stability cards */
   .stab-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
@@ -1595,7 +1605,32 @@ function renderBehavioral(bh) {
     </div>
   </div>`;
 
-  // ---------- C3: sequenza decisioni come "flusso" leggibile --------------
+  // ---------- C3: sequenza decisioni + check pairwise + verdetto triade -----
+  const c3verd = (c3.detail || {}).per_run_verdicts || {};
+  const CHECK_LABEL = {
+    planner_vs_investigators: "planner ↔ investigatori",
+    planner_vs_classifier:    "planner ↔ classifier",
+    classifier_vs_postmortems:"classifier ↔ postmortem",
+  };
+  function checkChip(name, chk) {
+    if (!chk) return '';
+    if (!chk.applicable) {
+      return `<span class="check-chip na" title="${esc(chk.reason||'')}">
+        <span class="mk">N/A</span> ${esc(CHECK_LABEL[name]||name)}</span>`;
+    }
+    const cls = chk.consistent ? 'ok' : 'no';
+    const mk = chk.consistent ? '✓' : '✗';
+    // dettaglio contestuale (planned, classification, ecc.)
+    const bits = [];
+    if (chk.planned) bits.push(`planned=${chk.planned}`);
+    if (chk.classification) bits.push(`class=${chk.classification}`);
+    if (chk.matched_symptom_keys?.length) bits.push(`keys=${chk.matched_symptom_keys.join(',')}`);
+    if (chk.expected_tags?.length) bits.push(`tag attesi=${chk.expected_tags.slice(0,3).join(',')}`);
+    const detail = bits.length ? ` <span class="chdet">· ${esc(bits.join(' · '))}</span>` : '';
+    return `<span class="check-chip ${cls}" title="${esc(JSON.stringify(chk).slice(0,220))}">
+      <span class="mk">${mk}</span> ${esc(CHECK_LABEL[name]||name)}${detail}</span>`;
+  }
+
   const decPanels = Object.entries(c3.per_run||{}).map(([rid,r],i)=>{
     const flow = (r.decisions||[]).map((d,idx)=>{
       const arrow = idx>0 ? '<span class="arrow">→</span>' : '';
@@ -1605,12 +1640,52 @@ function renderBehavioral(bh) {
         <span class="ch">${esc((d.meta && d.meta.choice) || (d.summary||'').split(':')[1] || '—')}</span>
       </div>`;
     }).join('');
+    const vr = c3verd[rid] || {};
+    const verdict = vr.verdict || 'unacceptable';
+    const verdictLabel = {coherent:'COERENTE', acceptable:'ACCETTABILE',
+                           unacceptable:'INACCETTABILE'}[verdict] || 'INACCETTABILE';
+    const checksHtml = Object.entries(vr.checks || {})
+      .map(([name, chk]) => checkChip(name, chk)).join(' ');
     return `<div class="dec-panel">
-      <div class="head"><span><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span></span>
-      <span>${r.n_decisions} decisioni</span></div>
+      <div class="head">
+        <div><b>Run #${i+1}</b> <span class="rid">${rid.slice(-8)}</span>
+          <span class="verdict ${verdict}">${verdictLabel}</span></div>
+        <span class="dim" style="font-size:12px">
+          ${vr.n_passed ?? 0}/${vr.n_applicable ?? 0} check · consistency ${((vr.consistency||0)*100).toFixed(0)}% · ${r.n_decisions} decisioni
+        </span>
+      </div>
+      ${checksHtml ? `<div class="checks-row">${checksHtml}</div>` : ''}
       <div class="dec-flow">${flow || '<span class="dim">Nessuna decisione registrata.</span>'}</div>
     </div>`;
   }).join('');
+
+  // Legenda e riepilogo aggregato C3 (stesso pattern di C2)
+  const c3d = c3.detail || {};
+  const c3dist = (c3d.C3_1_verdict_distribution || {}).distribution || {};
+  const c3ok = c3d.C3_3_acceptable_rate || {};
+  const c3coh = c3d.C3_4_coherent_rate || {};
+  const c3nC = c3dist.coherent || 0, c3nA = c3dist.acceptable || 0, c3nU = c3dist.unacceptable || 0;
+  const c3nT = c3nC + c3nA + c3nU;
+  const c3legend = `<div class="triad-legend">
+    <div class="row"><span class="lb">Coerente</span> tutti i check pairwise superati (consistency = 100%)</div>
+    <div class="row"><span class="lb">Accettabile</span> almeno metà dei check superati (50% ≤ consistency &lt; 100%): coerenza parziale</div>
+    <div class="row"><span class="lb">Inaccettabile</span> meno della metà (consistency &lt; 50%): decisioni non coerenti fra loro</div>
+    <div class="row" style="margin-top:6px;color:var(--dim2)"><span class="lb">3 check</span>
+      planner ↔ investigatori (il servizio pianificato è stato investigato?) ·
+      planner ↔ classifier (la classification è compatibile col sintomo?) ·
+      classifier ↔ postmortem (i PM correlati hanno tag compatibili?)</div>
+  </div>`;
+  const c3summary = c3nT === 0 ? '' : `<div class="triad-summary">
+    <div class="tile coherent"><span class="num">${c3nC}</span><span class="lb">coerenti</span></div>
+    <div class="tile acceptable"><span class="num">${c3nA}</span><span class="lb">accettabili</span></div>
+    <div class="tile unacceptable"><span class="num">${c3nU}</span><span class="lb">inaccettabili</span></div>
+    <div class="ci">
+      Tasso ≥ accettabile: <b>${(c3ok.value*100).toFixed(0)}%</b>
+      <span class="dim">(IC 95% ${(c3ok.ci_lo*100).toFixed(0)}–${(c3ok.ci_hi*100).toFixed(0)}%, n=${c3ok.n_runs})</span><br>
+      Tasso coerente: <b>${(c3coh.value*100).toFixed(0)}%</b>
+      <span class="dim">(IC 95% ${(c3coh.ci_lo*100).toFixed(0)}–${(c3coh.ci_hi*100).toFixed(0)}%, n=${c3coh.n_runs})</span>
+    </div>
+  </div>`;
 
   // ---------- C4: stabilità con barre visive e interpretazione ------------
   function entropyBand(ent) {
@@ -1970,6 +2045,8 @@ function renderBehavioral(bh) {
       ${bhHeader('C3', `${nRuns} sequenze`)}
       ${bhSchema('C3', c3_dec)}
       <div class="bh-body">
+        ${c3legend}
+        ${c3summary}
         ${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}
       </div>
     </details>

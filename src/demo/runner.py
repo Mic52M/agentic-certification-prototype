@@ -133,10 +133,21 @@ def run_experiment(
     # l'aggregator può calcolare le metriche di conformance (coverage delle
     # regole di routing, conformità del grafo di handoff, dead branches),
     # e la policy dichiarata per la triade C2 (coherent/acceptable/unacceptable).
-    from .behavioural_policy import classify_c2
+    from .behavioural_policy import (
+        C3_CLASSIFICATION_TO_PM_TAGS,
+        C3_SYMPTOM_TO_CLASSIFICATION,
+        classify_c2,
+        classify_c3,
+    )
     from .topology import declared_spec
-    agg = Aggregator(store, declared_spec=declared_spec(),
-                     bh_classify_c2=classify_c2).build_and_save()
+    agg = Aggregator(
+        store,
+        declared_spec=declared_spec(),
+        bh_classify_c2=classify_c2,
+        bh_classify_c3=classify_c3,
+        bh_symptom_map=C3_SYMPTOM_TO_CLASSIFICATION,
+        bh_class_to_tags=C3_CLASSIFICATION_TO_PM_TAGS,
+    ).build_and_save()
     result = {
         "experiment_id": session.experiment.experiment_id,
         "meta": session.experiment.to_dict(),
