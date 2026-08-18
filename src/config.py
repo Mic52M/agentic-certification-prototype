@@ -34,6 +34,19 @@ PROVIDER_PRIORITY: list[str] = [
 MODEL: str = os.getenv("MODEL", "gpt-oss-120b")
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
 
+# --- Data-flow mitigation --------------------------------------------------
+# Se True, il layer di persistenza applica un redattore PII per-canale
+# (categorie non ammesse dalla ALLOWED_SET_A vengono mascherate prima di
+# scrivere gli eventi JSONL e prima di notificare i sink UI). Le occorrenze
+# mascherate finiscono nei metadata dell'evento come `pii_redaction_hits`,
+# in modo che l'aggregator possa dichiarare quante violazioni sono state
+# mitigate senza dover ri-scansionare il testo (che ora è già mascherato).
+# Impostare DATAFLOW_REDACTION_ENABLED=false per esperimenti "raw" utili
+# a documentare la detection in assenza di mitigation.
+DATAFLOW_REDACTION_ENABLED: bool = os.getenv(
+    "DATAFLOW_REDACTION_ENABLED", "true"
+).lower() in {"1", "true", "yes"}
+
 # Safety limit against runaway ReAct loops (single agent).
 MAX_ITERATIONS: int = int(os.getenv("MAX_ITERATIONS", "10"))
 

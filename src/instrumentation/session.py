@@ -32,6 +32,10 @@ class ExperimentMeta:
     started_at: int
     created_by: str = "demo"
     notes: str = ""
+    # Se True, il layer di persistenza ha applicato mitigation PII per-canale.
+    # Un batch "raw" (False) documenta la detection senza contromisura; un
+    # batch "redacted" (True) documenta il ciclo detect→mitigate→re-verify.
+    dataflow_redaction_enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +48,7 @@ class ExperimentMeta:
             "started_at": self.started_at,
             "created_by": self.created_by,
             "notes": self.notes,
+            "dataflow_redaction_enabled": self.dataflow_redaction_enabled,
         }
 
 
@@ -80,7 +85,8 @@ class RunSessionManager:
     """
 
     def __init__(self, ticket_id: str, macro_focus: str, model: str,
-                 temperature: float, runs_target: int, notes: str = "") -> None:
+                 temperature: float, runs_target: int, notes: str = "",
+                 dataflow_redaction_enabled: bool = True) -> None:
         now = int(time.time() * 1000)
         self.experiment = ExperimentMeta(
             experiment_id=_new_id("exp"),
@@ -91,6 +97,7 @@ class RunSessionManager:
             runs_target=runs_target,
             started_at=now,
             notes=notes,
+            dataflow_redaction_enabled=dataflow_redaction_enabled,
         )
         self.runs: list[RunMeta] = []
 

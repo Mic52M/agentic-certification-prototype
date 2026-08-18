@@ -25,6 +25,7 @@ from ..instrumentation import (
     Recorder,
     RunSessionManager,
 )
+from ..instrumentation.pii_redactor import PIIRedactor
 from ..llm_client import LLMClient
 from .graph import build_incident_graph
 from .state import IncidentState
@@ -66,6 +67,7 @@ def run_experiment(
         ticket_id=incident_id, macro_focus=macro_focus,
         model=config.MODEL, temperature=config.TEMPERATURE,
         runs_target=n_runs,
+        dataflow_redaction_enabled=config.DATAFLOW_REDACTION_ENABLED,
     )
     store = ExperimentStore(session.experiment)
 
@@ -76,10 +78,17 @@ def run_experiment(
 
     llm = LLMClient()
 
+    # Mitigation lato adapter (data-minimization su C1..C7). Se abilitata,
+    # il redattore maschera in-place le categorie di PII non ammesse dalla
+    # policy dichiarata prima che l'evento venga persistito o notificato
+    # ai sink UI (ciclo detect→mitigate→re-verify).
+    redactor = PIIRedactor() if config.DATAFLOW_REDACTION_ENABLED else None
+
     for i in range(1, n_runs + 1):
         run = session.start_run(i)
         subscribers = [event_sink] if event_sink else []
-        event_store = store.open_run(run, subscribers=subscribers)
+        event_store = store.open_run(run, subscribers=subscribers,
+                                     redactor=redactor)
         recorder = Recorder(event_store)
 
         # meta iniziale della run

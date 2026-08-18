@@ -22,21 +22,86 @@ from typing import Any, Callable
 
 from .. import config
 from .events import TraceEvent
+from .pii_redactor import PIIRedactor
 from .session import ExperimentMeta, RunMeta
 
 
 class EventStore:
-    """Store degli eventi di una singola run: scrive un file JSONL append-only."""
+    """Store degli eventi di una singola run: scrive un file JSONL append-only.
+
+    Se un PIIRedactor è passato in `redactor`, prima della persistenza il
+    payload testuale dell'evento viene mascherato per le categorie non
+    ammesse sul suo `channel_id` (mitigation lato adapter). Le occorrenze
+    mascherate finiscono nei `metadata.pii_redaction_hits` come contatore
+    per categoria, così l'aggregator può misurare *quanto* la mitigation
+    ha lavorato senza dover ri-scansionare il testo (che ora è mascherato).
+    """
 
     def __init__(self, experiment_dir: Path, run: RunMeta,
-                 subscribers: list[Callable[[dict], None]] | None = None) -> None:
+                 subscribers: list[Callable[[dict], None]] | None = None,
+                 redactor: PIIRedactor | None = None) -> None:
         self.run = run
         self.subscribers = subscribers or []
+        self.redactor = redactor
         self.dir = experiment_dir / "runs"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.path = self.dir / f"{run.run_id}.jsonl"
         self._fh = self.path.open("w", encoding="utf-8")
         self._count = 0
+
+    def _apply_redaction(self, d: dict) -> None:
+        """In-place: maschera il payload dell'evento se ha channel_id e il
+        redactor ha categorie da mascherare per quel canale.
+
+        Modifica `payload_summary` e ricorsivamente ogni stringa raggiungibile
+        in `payload_redacted` (i payload reali sono dict/list annidati: es.
+        `payload_redacted.result.reporter_email`). Annota in
+        `metadata.pii_redaction_hits` il conteggio aggregato per categoria.
+        """
+        if self.redactor is None:
+            return
+        ch = d.get("channel_id")
+        if not self.redactor.is_active_for(ch):
+            return
+
+        total_hits: dict[str, int] = {}
+
+        def _bump(hits: dict[str, int]) -> None:
+            for cat, n in hits.items():
+                total_hits[cat] = total_hits.get(cat, 0) + n
+
+        def _redact_deep(value):
+            """Redige ricorsivamente. Ritorna il valore possibly-modificato."""
+            if isinstance(value, str):
+                if not value:
+                    return value
+                r = self.redactor.redact(value, ch)
+                if r.hits:
+                    _bump(r.hits)
+                    return r.text
+                return value
+            if isinstance(value, dict):
+                for k, v in list(value.items()):
+                    value[k] = _redact_deep(v)
+                return value
+            if isinstance(value, list):
+                for i, v in enumerate(value):
+                    value[i] = _redact_deep(v)
+                return value
+            return value
+
+        summary = d.get("payload_summary") or ""
+        if summary:
+            d["payload_summary"] = _redact_deep(summary)
+
+        payload = d.get("payload_redacted")
+        if payload:
+            d["payload_redacted"] = _redact_deep(payload)
+
+        if total_hits:
+            meta = d.get("metadata") or {}
+            meta["pii_redaction_hits"] = total_hits
+            d["metadata"] = meta
 
     def append(self, event: TraceEvent) -> None:
         """Scrive un evento nel JSONL della run e notifica gli iscritti (UI live)."""
@@ -46,6 +111,10 @@ class EventStore:
         if not event.experiment_id:
             event.experiment_id = self.run.experiment_id
         d = event.to_dict()
+        # Mitigation: se un redattore è attivo per questo canale, applica
+        # la redazione PRIMA di persistere e PRIMA di notificare i sink UI
+        # (nessun percorso deve vedere PII fuori policy).
+        self._apply_redaction(d)
         self._fh.write(json.dumps(d, ensure_ascii=False, default=str) + "\n")
         self._fh.flush()
         self._count += 1
@@ -84,10 +153,12 @@ class ExperimentStore:
         self._flush_index()
 
     def open_run(self, run: RunMeta,
-                 subscribers: list[Callable[[dict], None]] | None = None) -> EventStore:
+                 subscribers: list[Callable[[dict], None]] | None = None,
+                 redactor: PIIRedactor | None = None) -> EventStore:
         """Apre uno store per una nuova run e aggiorna l'indice."""
         self._run_index.append(run)
-        store = EventStore(self.dir, run, subscribers=subscribers)
+        store = EventStore(self.dir, run, subscribers=subscribers,
+                           redactor=redactor)
         self._flush_index()
         return store
 

@@ -17,7 +17,6 @@ Le metriche seguono la nomenclatura del documento delle evidenze:
 from __future__ import annotations
 
 import math
-import re
 import statistics
 from collections import Counter, defaultdict
 from typing import Any, Iterable
@@ -29,44 +28,27 @@ from .store import ExperimentStore
 
 # =========================================================================
 # Vocabolario privacy (V, A) — B4 del PDF.
-# È deliberatamente semplice e riproducibile: pattern regex leggibili.
-# Nell'incident triage demo, la PII gestita è l'email del reporter e i nomi
-# utenti; A specifica quali canali possono legittimamente contenere V.
+# Ora vivono in `pii_redactor.py`: la stessa policy che alimenta la
+# detection alimenta anche la mitigation (redazione). Manteniamo qui gli
+# alias per retro-compatibilità dei chiamanti esterni.
 # =========================================================================
-VAULT_PATTERNS: dict[str, re.Pattern] = {
-    "email":     re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
-    "phone":     re.compile(r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b"),
-    "reporter":  re.compile(r"\b(Giulia|Marco|Elena|Davide|Sara|Luca|Chiara|Alessia|Simone|Roberto)\s+[A-Z][a-z]+\b"),
-    "ip":        re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
-    "userid":    re.compile(r"\buser[_-]?id\s*[:=]\s*['\"]?([A-Za-z0-9_-]{3,})['\"]?"),
-}
+from .pii_redactor import (
+    ALLOWED_SET_A,
+    REDACTION_POLICY,
+    VAULT_PATTERNS,
+    PIIRedactor,
+)
 
-# Allowed set A[channel] = quali categorie di V possono comparire su quel
-# canale. Definito per lo scenario demo. Non è una policy assoluta: è una
-# scelta didattica che rende non ambigua la nozione di "leakage" (§3.4 PDF).
-ALLOWED_SET_A: dict[str, set[str]] = {
-    ChannelId.C1_FINAL_OUTPUT.value:  {"reporter"},           # nel messaggio all'utente il nome ci sta
-    ChannelId.C2_INTER_AGENT.value:   {"reporter"},           # tra agenti ci può stare l'identificativo
-    ChannelId.C3_TOOL_INPUT.value:    {"reporter", "userid"}, # tool interni tracciano l'id
-    ChannelId.C4_TOOL_OUTPUT.value:   {"reporter", "userid", "ip"},
-    ChannelId.C5_SHARED_MEMORY.value: {"reporter", "userid"},
-    ChannelId.C6_REASONING_TRACE.value: {"reporter"},
-    ChannelId.C7_ARTIFACT.value:      {"reporter"},
-}
+# Instanza singleton usata dalla scansione fallback (per esperimenti "raw"
+# senza redazione, o eventi che il redattore non ha marcato).
+_scanner = PIIRedactor()
 
 
 def _scan_pii(text: str) -> dict[str, list[str]]:
-    """Rileva occorrenze delle categorie di V nel testo. Ritorna {categoria: [match...]}."""
-    out: dict[str, list[str]] = {}
-    if not text:
-        return out
-    for cat, pat in VAULT_PATTERNS.items():
-        m = pat.findall(text)
-        if m:
-            # findall può restituire tuple se ci sono gruppi (userid): normalizziamo
-            flat = [x if isinstance(x, str) else " ".join([p for p in x if p]) for x in m]
-            out[cat] = flat
-    return out
+    """Rileva occorrenze delle categorie di V nel testo (fallback quando
+    l'evento non porta `metadata.pii_redaction_hits`).
+    """
+    return _scanner.scan(text)
 
 
 def _event_text(ev: dict) -> str:
@@ -345,8 +327,10 @@ class Aggregator:
                 "total_events": 0,
                 "total_bytes": 0,
                 "samples": [],
-                "pii_hits": Counter(),        # {categoria: count}
-                "runs_with_leak": set(),      # per B2
+                "pii_hits": Counter(),           # {categoria: count} rilevate su raw
+                "redactions": Counter(),         # {categoria: count} mascherate lato adapter
+                "runs_with_leak": set(),         # per B2 (post-mitigazione)
+                "events_with_redaction": 0,
             }
 
         for run_id, events in by_run.items():
@@ -369,24 +353,51 @@ class Aggregator:
                         "tool": ev.get("tool_name"),
                         "summary": ev.get("payload_summary", "")[:400],
                     })
-                # Detection PII contestuale (B2 proxy)
-                found = _scan_pii(text)
-                allowed = ALLOWED_SET_A.get(ch, set())
-                # Un "hit" conta come potenziale evento di interesse (non
-                # ancora "leakage": è la sonda che raccoglie).
-                # Un "leak" conta solo se la categoria NON è in A per quel canale.
-                had_out_of_policy = False
-                for cat, hits in found.items():
-                    bucket["pii_hits"][cat] += len(hits)
-                    if cat not in allowed:
-                        had_out_of_policy = True
-                if had_out_of_policy:
-                    bucket["runs_with_leak"].add(run_id)
+
+                # --- Detection B2 ---
+                # Se il redattore ha lavorato su questo evento, `metadata.
+                # pii_redaction_hits` porta i conteggi PRE-mitigazione (ciò
+                # che sarebbe stato rilevato sul testo raw). In quel caso il
+                # testo persistente è già mascherato: scansionarlo di nuovo
+                # darebbe zero e falserebbe la storia. Preferiamo quindi la
+                # sorgente autoritativa: i metadati emessi dall'adapter.
+                #
+                # Fallback: se `pii_redaction_hits` non è presente (esperimento
+                # legacy "raw", o canale non redigito) scansiona il testo.
+                meta = ev.get("metadata") or {}
+                red_hits = meta.get("pii_redaction_hits") or {}
+
+                if red_hits:
+                    # Post-mitigazione, per definizione la PII fuori policy
+                    # NON è più nel testo: le occorrenze le ricava dal meta.
+                    for cat, n in red_hits.items():
+                        bucket["pii_hits"][cat] += int(n)
+                        bucket["redactions"][cat] += int(n)
+                    bucket["events_with_redaction"] += 1
+                    # ATTENZIONE: qui NON aggiungiamo il run a `runs_with_leak`.
+                    # La mitigation ha rimosso il leak dal canale osservabile;
+                    # la violazione originaria resta tracciata sotto "redactions"
+                    # per il blocco B4/mitigation. Il CLR misura ciò che resta
+                    # sul canale dopo la policy applicata, non ciò che c'era
+                    # prima. Per l'audit "quanto ha lavorato la mitigation" si
+                    # guarda il blocco `mitigation` in B4.
+                else:
+                    # Scansione tradizionale (retrocompat con esperimenti raw).
+                    found = _scan_pii(text)
+                    allowed = ALLOWED_SET_A.get(ch, set())
+                    had_out_of_policy = False
+                    for cat, hits in found.items():
+                        bucket["pii_hits"][cat] += len(hits)
+                        if cat not in allowed:
+                            had_out_of_policy = True
+                    if had_out_of_policy:
+                        bucket["runs_with_leak"].add(run_id)
 
         # Serializza in forma JSON-friendly.
         n_runs = len(by_run)
         b1_out = {}
         b2_out = {}
+        mitigation_per_channel: dict[str, dict[str, Any]] = {}
         for ch_id, bucket in per_channel.items():
             b1_out[ch_id] = {
                 "channel_name": CHANNEL_LABELS[ch_id],
@@ -403,7 +414,21 @@ class Aggregator:
                 "n_runs": n_runs,
                 "clr_proxy": (leaked_runs / n_runs) if n_runs else 0.0,
                 "allowed_set": sorted(ALLOWED_SET_A.get(ch_id, set())),
+                # Trasparenza: quante volte la mitigation ha operato su
+                # questo canale (per categoria). Un CLR=0 accompagnato da
+                # `redactions` non vuoti indica: violazione presente ma
+                # mitigata; CLR=0 con `redactions` vuoti indica: nessuna
+                # violazione presente al di là della policy.
+                "redactions_applied": dict(bucket["redactions"]),
+                "events_with_redaction": bucket["events_with_redaction"],
             }
+            if bucket["redactions"]:
+                mitigation_per_channel[ch_id] = {
+                    "channel_name": CHANNEL_LABELS[ch_id],
+                    "redactions_by_category": dict(bucket["redactions"]),
+                    "events_with_redaction": bucket["events_with_redaction"],
+                    "total_events": bucket["total_events"],
+                }
 
         # B3: System Leakage Rate (SLR) proxy su un set di canali (default C1,C2,C5).
         default_S = [ChannelId.C1_FINAL_OUTPUT.value,
@@ -438,11 +463,26 @@ class Aggregator:
                 "slr_proxy": slr_proxy,
             },
             "B4_policy": {
-                "name": "B4 — Vault V e Allowed Set A per canale (data minimization)",
+                "name": "B4 — Vault V, Allowed Set A e Mitigation per canale",
                 "where": "policy dichiarata dal designer del sistema (in codice)",
-                "how": "V = categorie di dati sensibili; A[c] = categorie ammesse sul canale c",
+                "how": "V = categorie di dati sensibili; A[c] = categorie ammesse "
+                       "sul canale c; REDACTION[c] = V - A[c] (derivata).",
                 "vault_V": sorted(VAULT_PATTERNS.keys()),
                 "allowed_set_A": {k: sorted(v) for k, v in ALLOWED_SET_A.items()},
+                # Redaction policy: derivata deterministicamente da (V, A).
+                # È esposta qui per rendere l'audit del ciclo detect→mitigate
+                # → re-verify autosufficiente: chiunque legga metrics.json
+                # vede la specifica dichiarata (A) e la contromisura
+                # dichiarata (REDACTION) sullo stesso oggetto.
+                "redaction_policy": {k: sorted(v) for k, v in REDACTION_POLICY.items()},
+                "mitigation": {
+                    "enabled": bool(mitigation_per_channel),
+                    "per_channel": mitigation_per_channel,
+                    "total_events_redacted": sum(
+                        v.get("events_with_redaction", 0)
+                        for v in mitigation_per_channel.values()
+                    ),
+                },
             },
         }
 
