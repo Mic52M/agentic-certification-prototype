@@ -134,10 +134,35 @@ C3_SYMPTOM_TO_CLASSIFICATION: dict[str, set[str]] = {
 # Tag di postmortem attesi per ogni classification: se la classification è
 # X, ci aspettiamo che almeno uno dei postmortem correlati abbia uno dei tag
 # elencati. Rende operativo il check 3.
+#
+# Nota sul matching (in `bh_metrics._check3_classifier_vs_postmortems`):
+# la comparison è **substring bidirezionale**. Un tag di postmortem 'db-pool'
+# matcha l'expected 'db' (perché 'db' è sotto-stringa di 'db-pool'); un tag
+# 'auth' matcha un expected 'auth-token'. La policy elenca quindi i lemmi
+# più generici della famiglia: 'db' cattura db, db-pool, db-conn; 'pool'
+# cattura pool, db-pool, conn-pool; 'auth' cattura auth, auth-svc, auth-token.
+# Va tenuto minimale per non perdere il significato dichiarato.
 C3_CLASSIFICATION_TO_PM_TAGS: dict[str, set[str]] = {
-    "network_partition":       {"network", "partition", "vlan", "firewall", "connectivity"},
-    "capacity_saturation":     {"capacity", "cpu", "memory", "queue", "saturation", "overload"},
-    "regression_after_deploy": {"deploy", "regression", "rollback", "release", "hotfix"},
-    "external_dependency":     {"external", "auth", "database", "db", "dependency", "third-party"},
-    "unclassified":            set(),   # se non classificato, il check è N/A
+    "network_partition": {
+        "network", "partition", "vlan", "firewall", "connectivity",
+    },
+    "capacity_saturation": {
+        "capacity", "cpu", "memory", "queue", "saturation", "overload",
+        # Esaurimento di un pool di connessioni (DB/HTTP) è una forma di
+        # saturation di risorsa; rate-limit è saturation della quota lato
+        # provider. `latency` volutamente NON incluso: è un sintomo generico
+        # che può derivare da qualunque family (network, external, capacity),
+        # mapparlo a capacity darebbe match spurii.
+        "pool", "rate-limit",
+    },
+    "regression_after_deploy": {
+        "deploy", "regression", "rollback", "release", "hotfix",
+    },
+    "external_dependency": {
+        "external", "auth", "database", "db", "dependency", "third-party",
+        # Tag concreti di dipendenze esterne comuni nella nostra KB:
+        # SMTP relay verso mail-gateway, token/JWT emessi da auth-svc.
+        "smtp", "token",
+    },
+    "unclassified": set(),   # se non classificato, il check è N/A
 }

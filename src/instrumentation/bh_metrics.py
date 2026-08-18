@@ -262,12 +262,29 @@ def _check3_classifier_vs_postmortems(decisions: list[dict],
                 "reason": "nessun postmortem correlato recuperato",
                 "classification": classification}
 
+    # Matching bidirezionale: un tag di postmortem 'db-pool' considera match
+    # con l'expected 'db' (perché 'db' è sotto-stringa di 'db-pool'), e
+    # simmetricamente 'auth' matcha un expected 'auth-token'. Questo evita
+    # fail lessicali su varianti dello stesso concetto, senza allargare la
+    # semantica della policy — la policy resta dichiarata, il matching resta
+    # ispezionabile (nel campo 'overlap' compaiono le coppie 'pm~expected').
+    exp_lower = {e.lower() for e in expected_tags}
+
+    def _pair_matches(pm_tags: set[str]) -> list[str]:
+        pairs: list[str] = []
+        for t in pm_tags:
+            for e in exp_lower:
+                if e == t or e in t or t in e:
+                    pairs.append(t if e == t else f"{t}~{e}")
+                    break
+        return sorted(pairs)
+
     hits: list[dict] = []
     for pm in pms:
         pm_tags = {t.lower() for t in (pm.get("tags") or [])}
-        overlap = pm_tags & expected_tags
+        overlap = _pair_matches(pm_tags)
         hits.append({"id": pm.get("id"), "tags": sorted(pm_tags),
-                     "overlap": sorted(overlap)})
+                     "overlap": overlap})
     at_least_one = any(h["overlap"] for h in hits)
     return {
         "applicable": True,
