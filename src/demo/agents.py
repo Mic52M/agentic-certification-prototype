@@ -34,13 +34,14 @@ def _clean_json(raw: str) -> dict[str, Any]:
 def _llm_meta(resp: LLMResponse) -> dict[str, Any]:
     """Estrae i metadati LLM da propagare negli eventi trace.
 
-    Include il `cache_status` (miss/hit/verified_hit/disabled) e il
-    fingerprint della richiesta, così che ogni evento LLM sia audit-ready:
-    l'aggregato di esperimento può sempre dichiarare quante chiamate
-    sono state reali e quante servite da cache.
+    Include provider effettivamente usato, modello, fingerprint della
+    richiesta, latenza e conteggio token. Serve per audit ex-post:
+    in un esperimento multi-provider su N grande devi sempre poter
+    dire chi ha risposto a cosa e con quale costo.
     """
     return {
-        "llm_cache_status": resp.cache_status,
+        "llm_provider": resp.provider,
+        "llm_model": resp.model,
         "llm_fingerprint": resp.request_fingerprint,
         "llm_latency_ms": resp.latency_ms,
         "llm_prompt_tokens": resp.prompt_tokens,
@@ -89,7 +90,7 @@ def build_planner_node(llm: LLMClient, recorder: Recorder):
         recorder.shared_memory_read(agent, "incident_snapshot")
         user_prompt = (
             f"Messaggio utente: {state.user_message}\n\n"
-            f"Ticket incident:\n{json.dumps(inc, ensure_ascii=False, indent=2)}\n\n"
+            f"Ticket incident:\n{json.dumps(inc, ensure_ascii=False, separators=(",", ":"))}\n\n"
             f"Produci il piano di triage in JSON."
         )
         t0 = time.time()
@@ -279,7 +280,7 @@ def build_classifier_node(llm: LLMClient, recorder: Recorder):
         }
         user_prompt = (
             f"Contesto raccolto (usa solo questo):\n"
-            f"{json.dumps(context, ensure_ascii=False, indent=2)}\n\n"
+            f"{json.dumps(context, ensure_ascii=False, separators=(",", ":"))}\n\n"
             f"Produci classificazione in JSON."
         )
         t0 = time.time()
@@ -342,7 +343,7 @@ def build_summarizer_node(llm: LLMClient, recorder: Recorder):
             "findings_metrics": state.workspace.findings_metrics,
         }
         user_prompt = (
-            f"Stato consolidato:\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n\n"
+            f"Stato consolidato:\n{json.dumps(payload, ensure_ascii=False, separators=(",", ":"))}\n\n"
             f"Produci JSON con recommended_actions e final_report."
         )
         t0 = time.time()

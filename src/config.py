@@ -15,13 +15,23 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-# --- LLM / Groq ----------------------------------------------------------
+# --- LLM: provider e chiavi ----------------------------------------------
 GROQ_API_KEY: str | None = os.getenv("GROQ_API_KEY")
 GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-# Modello di default: openai/gpt-oss-120b (131K contesto, tool use nativo).
-# Il precedente qwen/qwen3-32b è stato deprecato da Groq; alternative valide
-# sono qwen/qwen3.6-27b e llama-3.3-70b-versatile. Override via env MODEL=.
-MODEL: str = os.getenv("MODEL", "openai/gpt-oss-120b")
+CEREBRAS_API_KEY: str | None = os.getenv("CEREBRAS_API_KEY")
+
+# Ordine di preferenza dei provider (fallback su rate-limit del primo).
+# I provider senza chiave vengono automaticamente saltati dal LLMClient.
+PROVIDER_PRIORITY: list[str] = [
+    p.strip() for p in os.getenv("PROVIDER_PRIORITY", "groq,cerebras").split(",")
+    if p.strip()
+]
+
+# Modello CANONICO (nome indipendente dal provider). Il client fa mapping:
+#   canonico "gpt-oss-120b" → Groq: "openai/gpt-oss-120b", Cerebras: "gpt-oss-120b".
+# Modello principale: usato da tutti gli agenti se non c'è override.
+# Deve esistere su TUTTI i provider abilitati per garantire il fallback.
+MODEL: str = os.getenv("MODEL", "gpt-oss-120b")
 TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.0"))
 
 # Safety limit against runaway ReAct loops (single agent).
@@ -32,14 +42,6 @@ EXPERIMENT_RUNS: int = int(os.getenv("EXPERIMENT_RUNS", "10"))
 # Delay in secondi tra run consecutive (rate limit Groq).
 EXPERIMENT_DELAY_S: float = float(os.getenv("EXPERIMENT_DELAY_S", "1.0"))
 
-# --- Cache LLM (fase 1: sblocca esperimenti su N grande) ------------------
-# La cache è attiva SOLO se temperature==0.0 (regola dura nel modulo cache).
-# Impostare LLM_CACHE_ENABLED=false per bypassarla anche con temperature=0
-# (es. per rigenerare un esperimento contro il provider reale).
-LLM_CACHE_ENABLED: bool = os.getenv("LLM_CACHE_ENABLED", "true").lower() in {"1", "true", "yes"}
-# Frazione delle cache-hit ri-eseguite contro il provider per detectare drift
-# lato modello. Default 2%: costo trascurabile, garanzia empirica solida.
-LLM_CACHE_VERIFY_SAMPLE: float = float(os.getenv("LLM_CACHE_VERIFY_SAMPLE", "0.02"))
 
 # --- Paths ---------------------------------------------------------------
 DATA_DIR = PROJECT_ROOT / "data"
@@ -60,10 +62,16 @@ TICKETS_PATH = LEGACY_DATA_DIR / "tickets.json"
 
 
 def require_api_key() -> str:
-    """Fail fast with a readable message if the key is missing."""
-    if not GROQ_API_KEY:
-        raise RuntimeError(
-            "GROQ_API_KEY non impostata. Copia .env.example in .env e inserisci "
-            "la tua chiave Groq (https://console.groq.com/keys)."
-        )
-    return GROQ_API_KEY
+    """Compat: la vecchia utility ritorna la Groq key se presente, altrimenti
+    la Cerebras key. Il client multi-provider verifica indipendentemente
+    l'availability di ogni backend; questa funzione resta per il codice che
+    chiedeva una singola chiave in modo esplicito.
+    """
+    if GROQ_API_KEY:
+        return GROQ_API_KEY
+    if CEREBRAS_API_KEY:
+        return CEREBRAS_API_KEY
+    raise RuntimeError(
+        "Nessuna chiave provider impostata. Copia .env.example in .env e "
+        "inserisci almeno una tra GROQ_API_KEY e CEREBRAS_API_KEY."
+    )

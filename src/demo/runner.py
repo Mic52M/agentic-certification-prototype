@@ -22,7 +22,6 @@ from .. import config
 from ..instrumentation import (
     Aggregator,
     ExperimentStore,
-    LLMCache,
     Recorder,
     RunSessionManager,
 )
@@ -75,16 +74,7 @@ def run_experiment(
                        "experiment_id": session.experiment.experiment_id,
                        "meta": session.experiment.to_dict()})
 
-    # Cache LLM per-esperimento: attiva solo a temperature=0.0 (regola dura
-    # nel modulo cache). Sblocca esperimenti su N grande senza falsificare la
-    # misura di varianza — quando temperature>0 la cache è un no-op per
-    # costruzione. Il verify sampling ri-esegue una frazione degli hit
-    # contro il provider per detectare drift lato modello.
-    cache: LLMCache | None = None
-    if config.LLM_CACHE_ENABLED:
-        cache = LLMCache(store.dir / "llm_cache")
-    llm = LLMClient(cache=cache,
-                    verify_sample=config.LLM_CACHE_VERIFY_SAMPLE)
+    llm = LLMClient()
 
     for i in range(1, n_runs + 1):
         run = session.start_run(i)
