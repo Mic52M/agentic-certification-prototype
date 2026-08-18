@@ -19,7 +19,7 @@ import time
 from typing import Any
 
 from ..instrumentation import Recorder
-from ..llm_client import LLMClient
+from ..llm_client import LLMClient, LLMResponse
 from ..parsing import extract_json_object
 from . import prompts as P
 from .state import IncidentState
@@ -29,6 +29,23 @@ from .tools import execute_tool
 def _clean_json(raw: str) -> dict[str, Any]:
     obj = extract_json_object(raw)
     return obj if isinstance(obj, dict) else {}
+
+
+def _llm_meta(resp: LLMResponse) -> dict[str, Any]:
+    """Estrae i metadati LLM da propagare negli eventi trace.
+
+    Include il `cache_status` (miss/hit/verified_hit/disabled) e il
+    fingerprint della richiesta, così che ogni evento LLM sia audit-ready:
+    l'aggregato di esperimento può sempre dichiarare quante chiamate
+    sono state reali e quante servite da cache.
+    """
+    return {
+        "llm_cache_status": resp.cache_status,
+        "llm_fingerprint": resp.request_fingerprint,
+        "llm_latency_ms": resp.latency_ms,
+        "llm_prompt_tokens": resp.prompt_tokens,
+        "llm_completion_tokens": resp.completion_tokens,
+    }
 
 
 # =========================================================================
@@ -85,8 +102,9 @@ def build_planner_node(llm: LLMClient, recorder: Recorder):
         service = str(obj.get("affected_service") or "unknown")
         primary_symptom = str(obj.get("primary_symptom", ""))
 
-        recorder.reasoning_step(agent, thought)
-        recorder.planning_span(agent, plan=plan, duration_ms=dt)
+        llm_meta = _llm_meta(resp)
+        recorder.reasoning_step(agent, thought, meta=llm_meta)
+        recorder.planning_span(agent, plan=plan, duration_ms=dt, meta=llm_meta)
         recorder.decision_point(agent, "affected_service", service,
                                 inputs={"primary_symptom": primary_symptom},
                                 meta={"n_steps": len(plan)})
@@ -274,7 +292,7 @@ def build_classifier_node(llm: LLMClient, recorder: Recorder):
         confidence = str(obj.get("confidence", "low"))
         hypothesis = obj.get("hypothesis_ranked") or []
 
-        recorder.reasoning_step(agent, thought)
+        recorder.reasoning_step(agent, thought, meta=_llm_meta(resp))
         # Un unico decision_point che porta tutte le decisioni del classifier
         # nei suoi metadati (classification è la "scelta principale", priority
         # / confidence / hypothesis in meta).
@@ -337,7 +355,7 @@ def build_summarizer_node(llm: LLMClient, recorder: Recorder):
         # Nessun reasoning_step separato: il final_output è già l'output
         # sostantivo del summarizer, il thought sarebbe solo meta-narrativa.
         recorder.artifact(agent, name="triage_report", kind="markdown/plain",
-                          content=final_text)
+                          content=final_text, meta=_llm_meta(resp))
         recorder.final_output(agent, final_text)
         recorder.state_snapshot("summarizer", state={
             "classification": state.classification,

@@ -32,6 +32,15 @@ EXPERIMENT_RUNS: int = int(os.getenv("EXPERIMENT_RUNS", "10"))
 # Delay in secondi tra run consecutive (rate limit Groq).
 EXPERIMENT_DELAY_S: float = float(os.getenv("EXPERIMENT_DELAY_S", "1.0"))
 
+# --- Cache LLM (fase 1: sblocca esperimenti su N grande) ------------------
+# La cache è attiva SOLO se temperature==0.0 (regola dura nel modulo cache).
+# Impostare LLM_CACHE_ENABLED=false per bypassarla anche con temperature=0
+# (es. per rigenerare un esperimento contro il provider reale).
+LLM_CACHE_ENABLED: bool = os.getenv("LLM_CACHE_ENABLED", "true").lower() in {"1", "true", "yes"}
+# Frazione delle cache-hit ri-eseguite contro il provider per detectare drift
+# lato modello. Default 2%: costo trascurabile, garanzia empirica solida.
+LLM_CACHE_VERIFY_SAMPLE: float = float(os.getenv("LLM_CACHE_VERIFY_SAMPLE", "0.02"))
+
 # --- Paths ---------------------------------------------------------------
 DATA_DIR = PROJECT_ROOT / "data"
 TRACES_DIR = PROJECT_ROOT / "traces"

@@ -73,7 +73,11 @@ class Recorder:
         ))
 
     def planning_span(self, agent: str, plan: list[str], updated: bool = False,
-                      duration_ms: int = 0) -> None:
+                      duration_ms: int = 0, meta: dict | None = None) -> None:
+        # `meta` opzionale: usato per propagare metadati LLM (cache_status,
+        # fingerprint, token, latency) senza inquinare la firma con parametri
+        # posizionali. La cache LLM è certificazione-critical: sapere quali
+        # eventi vengono da chiamata reale vs cache-hit deve essere ispezionabile.
         self.store.append(build_event(
             EventKind.PLANNING_SPAN,
             run_id=self.store.run.run_id,
@@ -81,7 +85,8 @@ class Recorder:
             agent_id=agent,
             source_component=agent,
             payload_summary=f"piano [{len(plan)} step]: " + " → ".join(plan)[:200],
-            metadata={"plan": plan, "n_steps": len(plan), "updated": updated},
+            metadata={"plan": plan, "n_steps": len(plan), "updated": updated,
+                      **(meta or {})},
             duration_ms=duration_ms,
         ))
 
@@ -196,8 +201,11 @@ class Recorder:
             payload_redacted={"text": _redact_str(text)},
         ))
 
-    def artifact(self, agent: str, name: str, kind: str, content: str) -> None:
-        # C7: artefatto persistente (es. report, riepilogo)
+    def artifact(self, agent: str, name: str, kind: str, content: str,
+                 meta: dict | None = None) -> None:
+        # C7: artefatto persistente (es. report, riepilogo).
+        # `meta` propaga eventuali metadati LLM quando l'artefatto è generato
+        # da una chiamata modello (cache_status, fingerprint, latency, token).
         self.store.append(build_event(
             EventKind.ARTIFACT_PRODUCED,
             run_id=self.store.run.run_id,
@@ -207,10 +215,14 @@ class Recorder:
             payload_summary=f"artefatto '{name}' ({kind})",
             payload_redacted={"name": name, "kind": kind,
                               "content_excerpt": content[:600]},
+            metadata=(meta or {}),
         ))
 
-    def reasoning_step(self, agent: str, thought: str) -> None:
-        # C6: reasoning trace (utile per debugging e trajectory eval)
+    def reasoning_step(self, agent: str, thought: str,
+                       meta: dict | None = None) -> None:
+        # C6: reasoning trace (utile per debugging e trajectory eval).
+        # `meta` opzionale: propaga metadati LLM (cache_status, fingerprint,
+        # token, latency) quando il thought viene da una chiamata modello.
         self.store.append(build_event(
             EventKind.REASONING_STEP,
             run_id=self.store.run.run_id,
@@ -219,6 +231,7 @@ class Recorder:
             source_component=agent,
             payload_summary=thought[:280],
             payload_redacted={"thought": _redact_str(thought)},
+            metadata=(meta or {}),
         ))
 
     # ---------- Behavioral (C1..C4) -------------------------------------
