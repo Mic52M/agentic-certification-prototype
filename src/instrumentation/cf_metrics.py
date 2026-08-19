@@ -319,6 +319,8 @@ def a2_details(per_run_plans: dict[str, list[dict]],
 # A3 — Handoff
 # =========================================================================
 def a3_details(per_run_edges: dict[str, list[tuple[str, str]]],
+               *,
+               hub_nodes: set[str] | None = None,
                declared_edges: list[tuple[str, str]] | None) -> dict[str, Any]:
     """Metriche di dettaglio sugli handoff (grafo di control flow osservato)."""
     all_edges = [e for lst in per_run_edges.values() for e in lst]
@@ -344,17 +346,42 @@ def a3_details(per_run_edges: dict[str, list[tuple[str, str]]],
     density = len(observed_edges) / max_edges
 
     # --- A3.4 Bounce / cicli ------------------------------------------------
-    # Bounce = A→B seguito da B→A nella stessa run.
-    bounces = 0
+    # Un "bounce" è A→B seguito immediatamente da B→A nella stessa run.
+    # In una topologia hub-and-spoke i return-to-hub sono transizioni
+    # **strutturali** del design (ogni agente torna sempre all'orchestratore
+    # prima di essere reinstradato), non anti-pattern. Distinguiamo quindi:
+    #   - structural_bounces: A→hub→A dove hub ∈ hub_nodes dichiarati.
+    #     È il traffico normale della topologia; alto per costruzione.
+    #   - anti_pattern_bounces: A→B→A dove né A né B sono hub. Questi sono
+    #     i veri rimbalzi da segnalare (riattivazione anomala di un agente).
+    # Il conteggio storico `bounces` resta come somma per retro-compat, ma
+    # la lettura scientifica va sulle due componenti.
+    hubs = set(hub_nodes or ())
+    structural_bounces = 0
+    anti_pattern_bounces = 0
     repeat_targets = 0
     for run_id, edges in per_run_edges.items():
         for i in range(len(edges) - 1):
             a, b = edges[i]
             c, d = edges[i + 1]
             if (b, a) == (c, d):
-                bounces += 1
+                # Un bounce A→B→A è **strutturale** se coinvolge un hub:
+                # in hub-and-spoke ogni agente torna sempre al dispatcher
+                # prima di essere reinstradato, quindi la coppia (hub,X)
+                # (X,hub) è normale traffico della topologia. È **anti-
+                # pattern** solo quando né A né B sono hub — cioè un
+                # agente riattiva un altro agente senza passare dal
+                # dispatcher (violazione del contratto hub-and-spoke).
+                if a in hubs or b in hubs:
+                    structural_bounces += 1
+                else:
+                    anti_pattern_bounces += 1
         tgt_counts = Counter(t for _s, t in edges)
-        repeat_targets += sum(1 for _t, c in tgt_counts.items() if c > 1)
+        # Anche qui i return al hub non sono "repeat anomali": escludiamo
+        # gli hub dal conteggio dei target ripetuti.
+        repeat_targets += sum(1 for t, c in tgt_counts.items()
+                              if c > 1 and t not in hubs)
+    bounces = structural_bounces + anti_pattern_bounces
 
     # --- A3.5 Fan-out --------------------------------------------------------
     fanout: dict[str, int] = {}
@@ -397,7 +424,19 @@ def a3_details(per_run_edges: dict[str, list[tuple[str, str]]],
         "A3_4_bounces_cycles": {
             "label": "Bounce e ritorni sullo stesso agente",
             "root": "anti-pattern di orchestrazione multi-agente",
-            "question": "Ci sono rimbalzi A→B→A o agenti riattivati più volte nella stessa run?",
+            "question": "Ci sono rimbalzi A→B→A anomali "
+                        "(escludendo il traffico strutturale hub-and-spoke)?",
+            # Metrica principale (paper-facing): solo i bounce che non
+            # coinvolgono nodi hub dichiarati. In topologia hub-and-spoke
+            # dovrebbe essere 0 salvo riattivazioni anomale di un agente.
+            "anti_pattern_bounces": anti_pattern_bounces,
+            # Traffico strutturale (informativo): quante volte un agente è
+            # tornato al hub. Cresce linearmente col numero di step, ma non
+            # è un anti-pattern — è come funziona la topologia.
+            "structural_bounces": structural_bounces,
+            "hub_nodes": sorted(hubs),
+            # Totale legacy (retro-compat con dashboard precedente): la
+            # somma dei due. Sconsigliato come metrica standalone.
             "bounces": bounces,
             "runs_with_repeat_target": repeat_targets,
             "n_runs": len(per_run_edges),
@@ -425,7 +464,8 @@ def a3_details(per_run_edges: dict[str, list[tuple[str, str]]],
 # =========================================================================
 def a4_details(per_run: dict[str, dict],
                per_run_agent_seq: dict[str, list[str]],
-               declared_n_nodes: int | None) -> dict[str, Any]:
+               declared_n_nodes: int | None,
+               declared_edges: list[tuple[str, str]] | None = None) -> dict[str, Any]:
     """Metriche di dettaglio sul percorso complessivo della run."""
     if not per_run:
         return {}
@@ -451,18 +491,37 @@ def a4_details(per_run: dict[str, dict],
     variant_rows = [{"count": c, "sequence": list(v)} for v, c in variants.most_common()]
 
     # --- A4.5 Complessità ciclomatica (McCabe) -------------------------------
-    # M = E - N + 2 sul grafo di control flow osservato (aggregato su tutte
-    # le run): misura il numero di cammini linearmente indipendenti.
-    edges = set()
-    nodes = set()
+    # M = E - N + 2 va calcolata sul grafo DICHIARATO (proprietà statica
+    # del modello di control flow), non sull'osservato: la cyclomatic è
+    # una caratteristica del *design* del sistema, non del comportamento
+    # a runtime. Calcolarla per-run darebbe valori che oscillano al variare
+    # degli agenti effettivamente attivati, il che è concettualmente
+    # sbagliato (McCabe 1976 la definisce sul grafo del programma, non
+    # sul suo trace).
+    # Riportiamo anche la controparte osservata solo come informazione
+    # secondaria: quanto del design è stato esercitato.
+    if declared_edges:
+        declared_edge_set = {tuple(e) for e in declared_edges}
+        declared_node_set = {n for e in declared_edge_set for n in e}
+        n_nodes_decl = len(declared_node_set) or 1
+        cyclomatic_declared = len(declared_edge_set) - n_nodes_decl + 2
+    else:
+        declared_edge_set = set()
+        n_nodes_decl = 0
+        cyclomatic_declared = None
+
+    # Osservato (informativo): grafo aggregato sulle sequenze di agenti
+    # attivati.
+    edges_obs = set()
+    nodes_obs = set()
     for seq in per_run_agent_seq.values():
         prev = "orchestrator"
         for a in seq:
-            edges.add((prev, a)); edges.add((a, "orchestrator"))
-            nodes.add(a); nodes.add(prev)
+            edges_obs.add((prev, a)); edges_obs.add((a, "orchestrator"))
+            nodes_obs.add(a); nodes_obs.add(prev)
             prev = "orchestrator"
-    n_nodes_obs = len(nodes) or 1
-    cyclomatic = len(edges) - n_nodes_obs + 2
+    n_nodes_obs = len(nodes_obs) or 1
+    cyclomatic_observed = len(edges_obs) - n_nodes_obs + 2
 
     return {
         "A4_1_step_count": {
@@ -503,14 +562,24 @@ def a4_details(per_run: dict[str, dict],
             "variants": variant_rows[:8],
         },
         "A4_5_cyclomatic_complexity": {
-            "label": "Complessità ciclomatica del control flow",
+            "label": "Complessità ciclomatica del control flow (dichiarato)",
             "root": "McCabe (1976): M = E − N + 2",
-            "question": "Quanti cammini linearmente indipendenti ha il grafo osservato?",
-            "value": cyclomatic,
+            "question": "Quanti cammini linearmente indipendenti ha il "
+                        "grafo di control flow DICHIARATO?",
+            # Metrica principale (paper-facing): proprietà statica del
+            # modello, invariante rispetto al comportamento a runtime.
+            "value": cyclomatic_declared,
             "format": "int",
-            "edges": len(edges),
-            "nodes": n_nodes_obs,
-            "declared_nodes": declared_n_nodes,
+            "declared_edges": len(declared_edge_set),
+            "declared_nodes": n_nodes_decl or declared_n_nodes,
+            # Osservato (informativo): grafo aggregato sui percorsi
+            # effettivamente esercitati dalle N run.
+            "observed_cyclomatic": cyclomatic_observed,
+            "observed_edges": len(edges_obs),
+            "observed_nodes": n_nodes_obs,
+            "note": "McCabe è definita sul grafo del programma, non sul "
+                    "trace: la metrica principale è quella dichiarata; "
+                    "l'osservata è un indicatore di copertura del design.",
         },
         "A4_6_duration": {
             "label": "Durata della run",

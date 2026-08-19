@@ -20,11 +20,57 @@ Radici in letteratura:
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
+from itertools import combinations
 from typing import Any
 
 from .cf_metrics import stats, wilson_interval
+
+
+def _entropy_norm(counter: Counter) -> float:
+    """Entropia di Shannon normalizzata in [0,1] su una distribuzione categoriale.
+
+    0.0 = distribuzione degenere (tutto uguale). 1.0 = massima varianza
+    (uniforme sul supporto osservato).
+    """
+    total = sum(counter.values())
+    if total <= 1 or len(counter) <= 1:
+        return 0.0
+    probs = [c / total for c in counter.values()]
+    H = -sum(p * math.log2(p) for p in probs if p > 0)
+    Hmax = math.log2(len(counter))
+    return H / Hmax if Hmax > 0 else 0.0
+
+
+def _cv(values: list[float]) -> float | None:
+    """Coefficient of variation = σ / |μ|. Adimensionale, confrontabile
+    fra grandezze di scala diversa (durata ms vs lunghezza char).
+    None se μ==0 o N<2.
+    """
+    if len(values) < 2:
+        return None
+    m = sum(values) / len(values)
+    if m == 0:
+        return None
+    var = sum((v - m) ** 2 for v in values) / (len(values) - 1)
+    return math.sqrt(var) / abs(m)
+
+
+def _mean_pairwise_jaccard(sets: list[set[str]]) -> float | None:
+    """Jaccard medio su tutte le coppie di run. 1.0 = tutti identici,
+    0.0 = tutti disgiunti. None se N<2 o tutti i set vuoti.
+    """
+    if len(sets) < 2:
+        return None
+    scores: list[float] = []
+    for a, b in combinations(sets, 2):
+        if not a and not b:
+            continue
+        u = a | b
+        scores.append(len(a & b) / len(u) if u else 1.0)
+    return sum(scores) / len(scores) if scores else None
 
 
 # =========================================================================
@@ -382,4 +428,131 @@ def c3_details(per_run_decisions: dict[str, list[dict]],
             "n_runs": n_runs,
         },
         "per_run_verdicts": per_run_out,
+    }
+
+
+# =========================================================================
+# C4 · Stabilità comportamentale su N run — risoluzione multi-asse
+# =========================================================================
+def c4_details(
+    *,
+    node_signatures: Counter,          # sequenza agenti dedup
+    edge_signatures: Counter,          # sequenza handoff ordinati
+    tool_signatures: Counter,          # sequenza tool call ordinati
+    final_classification: Counter,
+    final_priority: Counter,
+    final_affected_service: Counter,
+    step_counts: list[int],            # n step per run
+    output_lengths: list[int],         # len(final_output_text) per run
+    durations_ms: list[float],         # durata totale run
+    postmortem_sets: list[set[str]],   # id postmortem selezionati per run
+) -> dict[str, Any]:
+    """Metriche di dettaglio C4 a risoluzione multi-asse.
+
+    Rationale: la vecchia C4 osservava solo la sequenza di agenti attivati
+    (sempre uguale a temp=0 in topologia deterministica → entropia sempre 0).
+    Ma a temp=0 c'è varianza reale su altri assi (batch composition + FP
+    non-associativity lato provider): affected_service scelto dal planner,
+    tool sequence, classification finale, insieme postmortem, lunghezza
+    output, durata totale. Le sonde di questa funzione la esplicitano.
+
+    Ogni sotto-metrica dichiara nel proprio dict:
+    - `label`, `root`, `question` (schema comune al framework);
+    - `axis` (nome asse di varianza), `format` (int/pct/ratio/dist);
+    - il valore osservato + eventuale entropia normalizzata / CV / Jaccard.
+    """
+    n_runs = len(step_counts)
+
+    def _key_to_str(k: Any) -> str:
+        # Le firme edge/tool sono tuple; convertiamole in stringhe leggibili
+        # per la serializzazione JSON (le chiavi JSON devono essere scalari)
+        # e per la lettura nella dashboard.
+        if isinstance(k, tuple):
+            if not k:
+                return "∅"
+            if k and isinstance(k[0], tuple):
+                return " → ".join(f"{a}→{b}" for a, b in k)
+            return " → ".join(str(x) for x in k)
+        return str(k)
+
+    def _dist_block(axis: str, counter: Counter, root: str,
+                    question: str) -> dict[str, Any]:
+        distribution = {_key_to_str(k): c for k, c in counter.most_common()}
+        return {
+            "label": f"Distribuzione + entropia — {axis}",
+            "root": root,
+            "question": question,
+            "axis": axis,
+            "distribution": distribution,
+            "entropy_norm": _entropy_norm(counter),
+            "n_distinct": len(counter),
+            "n_runs": n_runs,
+            "format": "dist",
+        }
+
+    def _cv_block(axis: str, values: list[float], root: str,
+                  question: str, unit: str) -> dict[str, Any]:
+        s = stats(values)
+        return {
+            "label": f"Coefficiente di variazione — {axis}",
+            "root": root,
+            "question": question,
+            "axis": axis,
+            "cv": _cv([float(v) for v in values]),
+            "mean": s.get("mean"),
+            "stdev": s.get("stdev"),
+            "min": s.get("min"),
+            "max": s.get("max"),
+            "unit": unit,
+            "n_runs": n_runs,
+            "format": "ratio",
+        }
+
+    return {
+        "C4_1_signature_nodes": _dist_block(
+            "trajectory_nodes", node_signatures,
+            "process mining · trace variants (nodi)",
+            "Le run visitano la stessa sequenza deduplicata di agenti?"),
+        "C4_2_signature_edges": _dist_block(
+            "trajectory_edges", edge_signatures,
+            "process mining · trace variants (edge-level)",
+            "Le run seguono la stessa sequenza ordinata di handoff?"),
+        "C4_3_tool_sequences": _dist_block(
+            "tool_sequences", tool_signatures,
+            "process mining · trace variants (tool-level)",
+            "Le run invocano gli stessi tool nello stesso ordine?"),
+        "C4_4_final_classification": _dist_block(
+            "final_classification", final_classification,
+            "output diversity (agentic evaluation)",
+            "La classification finale è stabile fra run?"),
+        "C4_5_final_priority": _dist_block(
+            "final_priority", final_priority,
+            "output diversity (agentic evaluation)",
+            "La priority finale è stabile fra run?"),
+        "C4_6_affected_service": _dist_block(
+            "affected_service", final_affected_service,
+            "decision diversity (planner-level)",
+            "Il planner sceglie sempre lo stesso servizio come impattato?"),
+        "C4_7_step_count_cv": _cv_block(
+            "step_count", [float(x) for x in step_counts],
+            "process observability · step efficiency",
+            "Il numero di step per run è stabile?", "steps"),
+        "C4_8_output_length_cv": _cv_block(
+            "output_length", [float(x) for x in output_lengths],
+            "output stability (agentic evaluation)",
+            "La lunghezza dell'output finale è stabile?", "chars"),
+        "C4_9_duration_cv": _cv_block(
+            "run_duration", [float(x) for x in durations_ms],
+            "latency stability (pipeline observability)",
+            "La durata end-to-end della run è stabile?", "ms"),
+        "C4_10_postmortem_stability": {
+            "label": "Stabilità set postmortem (Jaccard medio pairwise)",
+            "root": "retrieval stability",
+            "question": "Le run selezionano lo stesso insieme di postmortem?",
+            "axis": "postmortem_selection",
+            "mean_pairwise_jaccard": _mean_pairwise_jaccard(postmortem_sets),
+            "n_runs": n_runs,
+            "n_nonempty": sum(1 for s in postmortem_sets if s),
+            "format": "ratio",
+        },
     }

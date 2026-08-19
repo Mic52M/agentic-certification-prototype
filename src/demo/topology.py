@@ -18,6 +18,12 @@ from .orchestrator import ROUTING_RULES
 # Nodi ammessi (esclusi orchestrator e terminatore).
 DECLARED_AGENTS: tuple[str, ...] = NODE_NAMES
 
+# Nodi HUB della topologia: dispatchano verso >1 nodo terminale. In una
+# topologia hub-and-spoke i return-to-hub sono transizioni **strutturali**
+# del design, non anti-pattern: A3.4 li deve distinguere dai veri rimbalzi
+# (agent → X → agent) che indicano riattivazione anomala.
+DECLARED_HUB_NODES: tuple[str, ...] = ("orchestrator",)
+
 # Topologia hub-and-spoke dichiarata: l'orchestratore può instradare verso
 # ciascun agente e verso END; ogni agente torna all'orchestratore.
 DECLARED_EDGES: list[tuple[str, str]] = (
@@ -43,4 +49,7 @@ def declared_spec() -> dict:
         "rules": DECLARED_RULES,
         # numero di nodi del grafo dichiarato (agenti + orchestrator + end)
         "n_nodes": len(DECLARED_AGENTS) + 2,
+        # hub nodes: dispatcher legittimi nella topologia; i return-to-hub
+        # non contano come bounce anti-pattern (A3.4).
+        "hub_nodes": list(DECLARED_HUB_NODES),
     }

@@ -16,7 +16,6 @@ Le metriche seguono la nomenclatura del documento delle evidenze:
 
 from __future__ import annotations
 
-import math
 import statistics
 from collections import Counter, defaultdict
 from typing import Any, Iterable
@@ -278,7 +277,11 @@ class Aggregator:
                 "edges": [{"from": s, "to": t, "count": c}
                           for (s, t), c in a3_edges.most_common()],
                 "samples": a3_samples,
-                "detail": cf_metrics.a3_details(det_edges, declared_edges),
+                "detail": cf_metrics.a3_details(
+                    det_edges,
+                    declared_edges=declared_edges,
+                    hub_nodes=set(self.spec.get("hub_nodes") or ()),
+                ),
             },
             "A4_path_metrics": {
                 "name": "A4 — Metriche di percorso (step count, completion, errori)",
@@ -286,7 +289,10 @@ class Aggregator:
                 "how": "conteggi e statistiche sull'insieme degli eventi della run",
                 "per_run": a4_per_run,
                 "aggregate": self._path_aggregate(a4_per_run),
-                "detail": cf_metrics.a4_details(a4_per_run, det_agent_seq, declared_nodes),
+                "detail": cf_metrics.a4_details(
+                    a4_per_run, det_agent_seq, declared_nodes,
+                    declared_edges=declared_edges,
+                ),
             },
         }
 
@@ -499,10 +505,21 @@ class Aggregator:
         postmortems_per_run: dict[str, list[dict]] = {}
         # C2 — state <-> output proxy (confronto campi chiave)
         state_output_per_run: dict[str, dict[str, Any]] = {}
-        # C4 — varianza comportamentale su N run
+        # C4 — varianza comportamentale su N run (risoluzione multi-asse).
+        # Raccogliamo firme a granularità crescente + campi finali + grandezze
+        # numeriche. La vecchia risoluzione (sola sequenza nodi dedup) era
+        # cieca in topologia deterministica; qui esplicitiamo TUTTI gli assi
+        # dove la varianza residua LLM può manifestarsi.
         final_categories: Counter = Counter()
         final_priorities: Counter = Counter()
-        trajectory_signatures: Counter = Counter()
+        final_services: Counter = Counter()
+        trajectory_signatures: Counter = Counter()   # nodi dedup (legacy)
+        edge_signatures: Counter = Counter()         # handoff ordinati
+        tool_signatures: Counter = Counter()         # tool call ordinati
+        step_counts: list[int] = []
+        output_lengths: list[int] = []
+        durations_ms: list[float] = []
+        postmortem_sets: list[set[str]] = []
 
         for run_id, events in by_run.items():
             timeline = []
@@ -510,6 +527,10 @@ class Aggregator:
             decisions: list[dict] = []
             final_state: dict[str, Any] = {}
             final_output_text: str = ""
+            handoff_seq: list[tuple[str, str]] = []
+            tool_seq: list[str] = []
+            run_start_ms: int | None = None
+            run_end_ms: int | None = None
 
             for ev in events:
                 k = ev["event_type"]
@@ -549,6 +570,29 @@ class Aggregator:
                             {"id": p.get("id"), "tags": p.get("tags") or []}
                             for p in result if isinstance(p, dict)
                         )
+                elif k in (EventKind.HANDOFF.value,
+                          EventKind.ORCHESTRATOR_DECISION.value):
+                    # Firma edge-level: usa gli handoff se presenti,
+                    # altrimenti le orchestrator_decision (in questo
+                    # runtime hub-and-spoke ogni decisione dispatcher
+                    # rappresenta l'edge orchestrator→target).
+                    src = ev.get("source_component") or "orchestrator"
+                    tgt = ev.get("target_component") or ""
+                    if src and tgt:
+                        handoff_seq.append((src, tgt))
+                elif k == EventKind.TOOL_CALL.value:
+                    tname = ev.get("tool_name")
+                    if tname:
+                        tool_seq.append(str(tname))
+
+                # Bracket temporale della run (per C4.9 duration CV).
+                ts = ev.get("timestamp_start")
+                te = ev.get("timestamp_end") or ts
+                if ts is not None:
+                    if run_start_ms is None or ts < run_start_ms:
+                        run_start_ms = ts
+                    if run_end_ms is None or te > run_end_ms:
+                        run_end_ms = te
 
             # signature semplificata della traiettoria per C4 (sequenza di agenti)
             sig = tuple(dict.fromkeys(t["agent"] for t in timeline
@@ -575,11 +619,22 @@ class Aggregator:
                 "fields_missing_from_output": missing,
                 "final_output_excerpt": final_output_text[:400],
             }
-            # Per C4: distribuzioni dei campi finali chiave
+            # Per C4: distribuzioni dei campi finali chiave (multi-asse).
             if projected.get("classification"):
                 final_categories[str(projected["classification"])] += 1
             if projected.get("priority"):
                 final_priorities[str(projected["priority"])] += 1
+            if projected.get("affected_service"):
+                final_services[str(projected["affected_service"])] += 1
+            edge_signatures[tuple(handoff_seq)] += 1
+            tool_signatures[tuple(tool_seq)] += 1
+            step_counts.append(len(timeline))
+            output_lengths.append(len(final_output_text))
+            if run_start_ms is not None and run_end_ms is not None:
+                durations_ms.append(float(run_end_ms - run_start_ms))
+            postmortem_sets.append(
+                {p["id"] for p in postmortems_per_run.get(run_id, []) if p.get("id")}
+            )
 
             trajectories.append({
                 "run_id": run_id,
@@ -589,16 +644,6 @@ class Aggregator:
                 "n_decisions": len(decisions),
             })
             decisions_per_run[run_id] = decisions
-
-        # C4: entropia normalizzata come proxy di stabilità
-        def _entropy_norm(counter: Counter) -> float:
-            total = sum(counter.values())
-            if total <= 1 or len(counter) <= 1:
-                return 0.0
-            probs = [c / total for c in counter.values()]
-            H = -sum(p * math.log2(p) for p in probs if p > 0)
-            Hmax = math.log2(len(counter))
-            return H / Hmax if Hmax > 0 else 0.0
 
         return {
             "C1_trajectories": {
@@ -635,16 +680,28 @@ class Aggregator:
             "C4_behavioral_variance": {
                 "name": "C4 — Stabilità comportamentale su N run",
                 "where": "sulle N ripetizioni dello stesso ticket",
-                "how": "distribuzioni + entropia normalizzata su firme di traiettoria "
-                       "e campi finali (classification, priority)",
+                "how": "risoluzione multi-asse: firme di traiettoria a "
+                       "3 granularità (nodi/edge/tool), distribuzioni sui "
+                       "campi finali (classification/priority/service), "
+                       "coefficient of variation su step/output/durata, "
+                       "Jaccard medio pairwise sull'insieme postmortem",
+                # Firma legacy (kept for retro-compat con UI vecchia dashboard).
                 "trajectory_signatures": [{"signature": list(s), "count": c}
                                           for s, c in trajectory_signatures.most_common()],
-                "signature_entropy_norm": _entropy_norm(trajectory_signatures),
-                "final_classification_dist": dict(final_categories),
-                "classification_entropy_norm": _entropy_norm(final_categories),
-                "final_priority_dist": dict(final_priorities),
-                "priority_entropy_norm": _entropy_norm(final_priorities),
                 "n_runs": len(trajectories),
+                # Dettaglio multi-asse (10 sub-metriche C4.1..C4.10).
+                "detail": bh_metrics.c4_details(
+                    node_signatures=trajectory_signatures,
+                    edge_signatures=edge_signatures,
+                    tool_signatures=tool_signatures,
+                    final_classification=final_categories,
+                    final_priority=final_priorities,
+                    final_affected_service=final_services,
+                    step_counts=step_counts,
+                    output_lengths=output_lengths,
+                    durations_ms=durations_ms,
+                    postmortem_sets=postmortem_sets,
+                ),
             },
         }
 

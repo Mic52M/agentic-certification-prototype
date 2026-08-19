@@ -729,3 +729,162 @@ Fix meramente tecnici (bug rename, refactor senza cambio semantico) NON
 vanno qui: vanno solo nel commit message.
 
 In dubbio: se una scelta va discussa/motivata in un paper, va qui.
+
+---
+
+## 11 · Fase corrente · Tassonomia (primo paper autorizzato)
+
+Il supervisore ha autorizzato un **primo paper esclusivamente sulla
+tassonomia** degli oggetti che usiamo per definire le evidenze. Il
+lavoro sul prototipo prosegue come **empirical validation** del paper.
+
+Documento parallelo dedicato: [PAPER_TAXONOMY.md](PAPER_TAXONOMY.md).
+Contiene: contributo dichiarato, sezioni previste (§1-§12), le tre
+categorie, i sette attributi tassonomici (§ 5), matrice bozza (§ 6),
+ciclo di vita e collezione (§ 7-§ 8), roadmap di scrittura.
+
+Divisione di responsabilità fra i due documenti:
+- **RESEARCH_DECISIONS.md** (questo): tutte le decisioni del prototipo.
+- **PAPER_TAXONOMY.md**: scelte tassonomiche che entreranno nel paper.
+
+### 11.1 · Pre-condizioni: fix di consistenza sulle metriche deboli
+
+- **Decisione**: prima di codificare gli attributi tassonomici e
+  ridisegnare la dashboard, fixare le 3 metriche identificate come
+  fragili nell'audit di consistenza pre-tassonomia:
+  - **A3.4 bounces**: filtrare i return legittimi verso l'orchestratore
+    in topologia hub-and-spoke (attualmente sovrastima).
+  - **A4.5 cyclomatic complexity**: calcolare M=E-N+2 sul grafo
+    DICHIARATO (proprietà statica del modello), non sul grafo
+    osservato per-run (concettualmente sbagliato).
+  - **C4 signature entropy**: alzare la risoluzione oltre la sola
+    sequenza di agenti (attualmente sempre 0 con routing
+    deterministico); aggiungere firme edge-level, distribuzione
+    affected_service, n_step, insieme postmortem, CV lunghezza
+    output, CV durata.
+- **Motivazione**: costruire la tassonomia su categorie che nel paper
+  potrebbero essere criticate come deboli è auto-lesionista. Un
+  revisore che vede "140 anti-pattern per run" o "cyclomatic che
+  cambia da run a run" chiude il paper. I fix sono chirurgici, non
+  cambiano il framing.
+- **Ordine**: A3.4 → A4.5 → C4 (per crescente complessità).
+- **Alternative scartate**: dichiarare i limiti nel paper come "future
+  work" (troppo debole quando i fix sono a portata); ignorarli
+  (indifendibile).
+
+### 11.2 · Sette attributi tassonomici come metadata standardizzato
+
+- **Decisione**: dopo i fix di consistenza, ogni descrittore di metrica
+  (`cf_metrics.py`, `bh_metrics.py`, sezione DF dell'aggregator)
+  dichiara nel proprio payload i sette attributi: `hook`, `measure`,
+  `moment`, `cadence`, `lifecycle`, `regime`, `root`.
+- **Motivazione**: la matrice tassonomica del paper (§ 6 di
+  PAPER_TAXONOMY.md) diventa **auto-generabile** dal codice invece che
+  scritta a mano. La stessa fonte di verità alimenta sia il prototipo
+  sia il paper, coerenza garantita per costruzione.
+- **Enum tassonomica**: i sette attributi hanno dominio chiuso (elencato
+  in § 5 di PAPER_TAXONOMY.md); tenerli come `Literal[...]` in Python
+  garantisce che l'evoluzione della tassonomia sia visibile a diff.
+
+### 11.3 · Redesign dashboard con schema a fisarmonica
+
+- **Decisione**: dopo l'introduzione degli attributi, ridisegnare la
+  dashboard così che ogni evidenza sia un blocco `<details>` chiuso di
+  default. Aperto: griglia label→valore dei 7 attributi + grafico/dato
+  osservato + nota di limite dichiarato.
+- **Motivazione**: gli screenshot della dashboard rinnovata diventano
+  direttamente le figure del paper. Coerenza fra artefatto scientifico
+  e artefatto di ricerca.
+- **Alternative scartate**: dashboard invariata (perde valore paper);
+  documento separato di "attributi per evidenza" (duplicazione, drift).
+
+### 11.4 · Fix A3.4 · distinguere bounces strutturali da anti-pattern
+
+- **Decisione**: A3.4 ora emette **due** metriche separate:
+  `anti_pattern_bounces` (paper-facing) e `structural_bounces`
+  (informativa). Un bounce A→B→A è **strutturale** se A o B è un nodo
+  hub dichiarato in `DECLARED_HUB_NODES`; è **anti-pattern** solo
+  quando né A né B sono hub (agente riattivato da un altro agente
+  senza passare dal dispatcher, violazione del contratto hub-and-spoke).
+- **Motivazione**: la vecchia metrica contava 140 bounces per run di
+  cui ~100% strutturali (return-to-orchestrator legittimi della
+  topologia hub-and-spoke). Dichiararli come anti-pattern sarebbe
+  auto-lesionista in un paper: un revisore vede "140 anti-pattern per
+  run" e chiude. La separazione strutturale/anti-pattern rende la
+  metrica onesta rispetto al design.
+- **Alternative scartate**: dichiarare il numero grezzo con nota
+  esplicativa (non convince); rimuovere la metrica (perdiamo un
+  indicatore utile in topologie non hub-and-spoke).
+- **Evidenza empirica**: rigenerazione dell'aggregate di
+  `exp_79cb00d472bf` (20 run):
+  - **Prima**: `bounces = 140` (7/run), interpretabile male.
+  - **Dopo**: `anti_pattern_bounces = 0`, `structural_bounces = 140`
+    (7 return-to-hub per run, coerenti con la topologia).
+- **Limite dichiarato**: la classificazione strutturale/anti-pattern
+  richiede che l'architettura dichiari esplicitamente i nodi hub in
+  `topology.py` (`DECLARED_HUB_NODES`). Topologie senza hub esplicito
+  ricadono nel conteggio classico.
+
+### 11.5 · Fix A4.5 · McCabe sul grafo DICHIARATO
+
+- **Decisione**: `A4.5 cyclomatic_complexity` ora calcola `M = E − N + 2`
+  sul grafo `DECLARED_EDGES` (proprietà statica del modello), non sul
+  grafo osservato aggregato per-run. Riportiamo comunque
+  `observed_cyclomatic` come indicatore di **copertura del design**.
+- **Motivazione**: McCabe (1976) definisce la ciclomatica sul grafo del
+  programma, non sul suo trace. Calcolarla per-run darebbe valori che
+  oscillano con la sequenza degli agenti attivati, il che è
+  concettualmente sbagliato: la ciclomatica è invariante rispetto al
+  comportamento a runtime, dipende solo dal design.
+- **Alternative scartate**: mantenere la versione observed-only (attacco
+  facile per revisori "questo non è McCabe"); rimuovere A4.5 (perdiamo
+  una misura strutturale del design).
+- **Evidenza empirica**: batch `exp_79cb00d472bf`:
+  - `cyclomatic_declared = 8` (15 archi dichiarati − 9 nodi + 2).
+  - `observed_cyclomatic = 8` (14 archi osservati − 8 nodi + 2:
+    il design è quasi interamente esercitato dal ticket
+    metrics-first).
+
+### 11.6 · Fix C4 · risoluzione multi-asse della varianza cross-run
+
+- **Decisione**: C4 non è più una singola metrica su firma-agenti +
+  distribuzione classification/priority. È un **blocco a 10 sotto-metriche**
+  (`C4_1..C4_10`) che espone la varianza cross-run su assi indipendenti:
+  - Firme di traiettoria a 3 granularità: nodi (C4.1), edge ordinati
+    (C4.2), tool ordinati (C4.3).
+  - Distribuzioni categoriali sui campi finali: classification (C4.4),
+    priority (C4.5), affected_service (C4.6).
+  - Coefficient of Variation su grandezze numeriche: step count (C4.7),
+    output length (C4.8), duration (C4.9).
+  - Jaccard medio pairwise sul set di postmortem (C4.10).
+- **Motivazione**: la vecchia risoluzione (sola sequenza nodi dedup)
+  era **cieca in topologia deterministica**: entropy = 0 sempre, il
+  paper avrebbe dovuto dichiarare "nessuna varianza osservata" pur
+  essendoci varianza reale documentata in A2.5/A2.4/C2. La risoluzione
+  multi-asse la esplicita: la varianza LLM residua a temp=0 si
+  manifesta su output length, duration, occasionalmente classification,
+  raramente sulla topologia di routing.
+- **Alternative scartate**: aggiungere solo entropia sulla
+  classification (parziale); introdurre embedding-based semantic
+  similarity (introduce stocasticità dentro la metrica che vogliamo
+  deterministica).
+- **Evidenza empirica**: batch `exp_79cb00d472bf` rigenerato con il fix.
+  Vecchio C4:
+  - `signature_entropy_norm = 0.0`, `classification_entropy_norm = 0.286`,
+    `priority_entropy_norm = 0.0`. Segnale povero.
+
+  Nuovo C4:
+  - Firme (nodi/edge/tool): tutte H=0 (routing deterministico).
+  - `C4_4_final_classification`: H=0.286 (19× capacity_saturation +
+    1× regression_after_deploy) ← varianza semantica.
+  - `C4_8_output_length_cv`: **CV = 0.256** (min 679, max 1904 chars).
+  - `C4_9_duration_cv`: **CV = 0.898** (min 4.6s, max 59.1s).
+  - `C4_10_postmortem_stability`: Jaccard = 1.0 (sempre stesso set).
+
+  Il framework ora ha **tre assi di varianza reale** (semantica,
+  lunghezza, timing) dove prima aveva zero segnale — dimostrazione
+  empirica del salto ontologico del § 1.1 (varianza residua LLM
+  a temp=0).
+- **Limite dichiarato**: nessun IC su CV (bootstrap richiederebbe
+  N≥50); l'entropia normalizzata non è confrontabile fra distribuzioni
+  di supporti diversi.
