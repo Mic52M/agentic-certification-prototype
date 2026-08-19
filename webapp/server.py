@@ -56,6 +56,28 @@ def get_config() -> dict:
     }
 
 
+@app.get("/api/taxonomy")
+def get_taxonomy() -> dict:
+    """Espone la tassonomia dei dati grezzi.
+
+    Fonte unica di verità per la matrice del paper (vedi
+    src/instrumentation/data_taxonomy.py). Consumata dalla nuova tab
+    "Tassonomia dati" della dashboard.
+    """
+    from src.instrumentation.data_taxonomy import (
+        BLIND_SPOTS,
+        DATA_TAXONOMY,
+        DOMAINS,
+        TAXONOMY_SUMMARY,
+    )
+    return {
+        "entries": DATA_TAXONOMY,
+        "summary": TAXONOMY_SUMMARY,
+        "blind_spots": BLIND_SPOTS,
+        "domains": DOMAINS,
+    }
+
+
 @app.get("/api/incidents")
 def list_incidents() -> list[dict]:
     data = json.loads(config.INCIDENTS_PATH.read_text(encoding="utf-8"))

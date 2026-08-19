@@ -32,12 +32,14 @@
       align-items:center;background:transparent;transition:all .15s;user-select:none}
   .tab:hover{color:var(--txt);background:#161c25}
   .tab .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .tab.taxonomy    .dot{background:var(--green)}
   .tab.trace       .dot{background:var(--tr)}
   .tab.control_flow .dot{background:var(--cf)}
   .tab.data_flow    .dot{background:var(--df)}
   .tab.behavioral   .dot{background:var(--bh)}
   .tab.active{color:var(--txt);background:var(--bg);border-color:var(--border);
       border-bottom:1px solid var(--bg);margin-bottom:-1px}
+  .tab.active.taxonomy    {box-shadow:inset 0 3px 0 var(--green)}
   .tab.active.trace       {box-shadow:inset 0 3px 0 var(--tr)}
   .tab.active.control_flow{box-shadow:inset 0 3px 0 var(--cf)}
   .tab.active.data_flow   {box-shadow:inset 0 3px 0 var(--df)}
@@ -507,6 +509,109 @@
   th,td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
   th{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
   td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+  /* ================= TAB 0: TASSONOMIA DATI ================= */
+  .tax-wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .tax-hero{background:linear-gradient(180deg,#12191f,var(--panel));
+      border:1px solid var(--border);border-radius:12px;padding:18px 22px}
+  .tax-hero h2{margin:0 0 4px;font-size:18px;letter-spacing:.2px}
+  .tax-hero .lead{color:var(--dim);font-size:13px;line-height:1.55;max-width:900px}
+  .tax-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+  @media (max-width:900px){.tax-stats{grid-template-columns:repeat(2,1fr)}}
+  .tax-stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+      padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+  .tax-stat .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .tax-stat .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .tax-stat .sub{font-size:11px;color:var(--dim2)}
+  .tax-stat.cf .n{color:var(--cf)}
+  .tax-stat.df .n{color:var(--df)}
+  .tax-stat.bh .n{color:var(--bh)}
+  .tax-stat.common .n{color:var(--dim)}
+
+  .tax-gaps{background:#1f1a12;border:1px solid #3a2c1a;border-left:3px solid var(--yellow);
+      border-radius:8px;padding:12px 16px;display:flex;gap:14px;align-items:flex-start}
+  .tax-gaps .glbl{color:var(--yellow);font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+      font-size:11px;white-space:nowrap;padding-top:2px}
+  .tax-gaps .glist{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+  .tax-gap-chip{background:#2a2114;border:1px solid #4a3820;color:#d0b380;
+      padding:3px 10px;border-radius:12px;font-size:11px;font-family:'SF Mono',monospace}
+
+  .tax-toolbar{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+      position:sticky;top:0;z-index:5}
+  .tax-toolbar .tt-group{display:flex;flex-direction:column;gap:3px}
+  .tax-toolbar label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  .tax-toolbar select,.tax-toolbar input{min-width:170px}
+  .tax-toolbar input[type="search"]{min-width:260px}
+  .tax-toolbar .tt-count{margin-left:auto;color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+  .tax-toolbar .tt-clear{background:transparent;border:1px solid var(--border);color:var(--dim);
+      padding:6px 12px;font-weight:400}
+  .tax-toolbar .tt-clear:hover{color:var(--txt);border-color:var(--border2);background:var(--panel2)}
+
+  .tax-group{display:flex;flex-direction:column;gap:8px}
+  .tax-group-head{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);
+      display:flex;align-items:center;gap:10px;padding:12px 4px 4px;
+      border-top:1px dashed var(--border);margin-top:6px}
+  .tax-group-head:first-child{border-top:none;margin-top:0}
+  .tax-group-head .dot{width:8px;height:8px;border-radius:50%}
+  .tax-group-head.macro-common       .dot{background:var(--dim)}
+  .tax-group-head.macro-control_flow .dot{background:var(--cf)}
+  .tax-group-head.macro-data_flow    .dot{background:var(--df)}
+  .tax-group-head.macro-behavioral   .dot{background:var(--bh)}
+  .tax-group-head .cnt{margin-left:auto;color:var(--dim2);font-variant-numeric:tabular-nums}
+
+  .tax-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      overflow:hidden;transition:border-color .15s}
+  .tax-card:hover{border-color:var(--border2)}
+  .tax-card summary{padding:10px 14px;cursor:pointer;list-style:none;
+      display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center}
+  .tax-card summary::-webkit-details-marker{display:none}
+  .tax-card summary::before{content:'▸';color:var(--dim2);transition:transform .15s;font-size:12px}
+  .tax-card[open] summary::before{transform:rotate(90deg)}
+  .tax-card .id{font-family:'SF Mono',monospace;font-size:11px;color:var(--dim2);letter-spacing:.4px}
+  .tax-card .nm{font-family:'SF Mono',monospace;font-size:12.5px;color:var(--txt);font-weight:600}
+  .tax-card .ty{font-family:'SF Mono',monospace;font-size:11px;color:var(--cyan);
+      background:#0e1f24;padding:2px 8px;border-radius:4px}
+  .tax-card .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+  .tag{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);
+      color:var(--dim);letter-spacing:.3px;font-family:inherit;white-space:nowrap}
+  .tag.life-stable-in-run       {color:#87c5ff;border-color:#2b4a6b;background:#0f1b28}
+  .tag.life-derived-deterministic{color:#8ce4b0;border-color:#2c5b3f;background:#0f2117}
+  .tag.life-snapshot            {color:#e4c58c;border-color:#5b482c;background:#211a0f}
+  .tag.life-one-shot            {color:#ee8ca8;border-color:#5b2c3f;background:#211017}
+  .tag.life-volatile            {color:#f0a54f;border-color:#5c3b1a;background:#1f1509}
+  .tag.life-decaying            {color:#f85149;border-color:#5c1e1a;background:#1f0a0a}
+  .tag.rep-re-collectable-identical  {color:#8ce4b0}
+  .tag.rep-re-collectable-analogous  {color:#e4c58c}
+  .tag.rep-one-shot                  {color:#ee8ca8}
+  .tag.cad-event-triggered {color:#9ec5ff}
+  .tag.cad-on-demand       {color:#c48cff}
+  .tag.cad-polling-able    {color:#e4c58c}
+  .tag.cad-sliding-window  {color:#39c5cf}
+  .tag.pii-none            {display:none}   /* pulisce visivamente il default */
+  .tag.pii-audit-only,.tag.pii-schema      {color:var(--dim2);border-color:var(--border)}
+  .tag.pii-email,.tag.pii-phone,.tag.pii-reporter,.tag.pii-ip,.tag.pii-userid,.tag.pii-may-contain-V
+                                           {color:#ff9ec5;border-color:#5b2c47;background:#1f0f18}
+
+  .tax-body{border-top:1px solid var(--border);padding:14px 16px;background:var(--bg2);
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px}
+  @media (max-width:900px){.tax-body{grid-template-columns:1fr}}
+  .tax-field{display:grid;grid-template-columns:130px 1fr;gap:10px;align-items:baseline;font-size:12.5px}
+  .tax-field .fk{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-size:10px;
+      padding-top:2px}
+  .tax-field .fv{color:var(--txt);word-break:break-word;line-height:1.5;
+      font-family:'SF Mono',monospace;font-size:12px}
+  .tax-notes{grid-column:1/-1;background:var(--panel);border-left:2px solid var(--dim2);
+      color:var(--dim);padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;font-style:italic}
+
+  .tax-blindspots{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  .tax-blindspots h3{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .tax-blindspots .bs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+  .tax-bs{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);
+      border-radius:6px;padding:9px 12px}
+  .tax-bs .bs-name{font-size:12.5px;font-weight:600;color:var(--txt);margin-bottom:2px}
+  .tax-bs .bs-detail{font-size:11.5px;color:var(--dim);line-height:1.5}
 </style>
 </head>
 <body>
@@ -518,7 +623,8 @@
     Le altre tre: evidenze aggregate per macro-dimensione di ricerca.
   </div>
   <div class="tabs" id="tabs">
-    <div class="tab trace       active" data-tab="trace">        <span class="dot"></span> Trace agenti</div>
+    <div class="tab taxonomy    active" data-tab="taxonomy">     <span class="dot"></span> Tassonomia dati</div>
+    <div class="tab trace"              data-tab="trace">        <span class="dot"></span> Trace agenti</div>
     <div class="tab control_flow"       data-tab="control_flow"> <span class="dot"></span> Control Flow</div>
     <div class="tab data_flow"          data-tab="data_flow">    <span class="dot"></span> Data Flow</div>
     <div class="tab behavioral"         data-tab="behavioral">   <span class="dot"></span> Behavioural Flow</div>
@@ -551,7 +657,7 @@
 
 <main>
   <!-- ============ TAB 1: TRACE AGENTI ============ -->
-  <section class="view active" data-view="trace">
+  <section class="view" data-view="trace">
     <div class="trace-layout">
       <div class="trace-left">
         <div class="panel graph-panel">
@@ -628,6 +734,8 @@
   <section class="view" data-view="data_flow"><div id="v-df"></div></section>
   <!-- ============ TAB 4: BEHAVIOURAL ============ -->
   <section class="view" data-view="behavioral"><div id="v-bh"></div></section>
+  <!-- ============ TAB 5: TASSONOMIA DATI ============ -->
+  <section class="view active" data-view="taxonomy"><div id="v-tax"></div></section>
 </main>
 
 <script>
@@ -2124,11 +2232,233 @@ function renderArchMap(macroKey) {
 }
 
 // ========================================================================
+// TAB: TASSONOMIA DATI
+// ========================================================================
+// Renderizza la tassonomia dei dati grezzi (72 righe × 11 attributi) come
+// spina dorsale del primo paper. Design: header con stats, banner buchi,
+// toolbar filtro sticky, card espandibili raggruppate per evidenza.
+const TAX = { entries: [], summary: {}, blind_spots: [], domains: {},
+              filters: { macro:'', lifecycle:'', reproducibility:'', q:'' } };
+
+const TAX_MACRO_LABEL = {
+  common: 'Comuni (recorder-builtin)',
+  control_flow: 'Control Flow',
+  data_flow: 'Data Flow',
+  behavioral: 'Behavioral',
+};
+const ATTR_LABEL = {
+  name: 'Name', type: 'Type', hook: 'Hook', moment: 'Moment',
+  cardinality: 'Cardinality', lifecycle: 'Lifecycle',
+  reproducibility: 'Reproducibility', cadence: 'Cadence',
+  persistence: 'Persistence', pii: 'PII', unit: 'Unit',
+};
+
+async function loadTaxonomy() {
+  const r = await fetch('/api/taxonomy');
+  if (!r.ok) throw new Error('taxonomy load failed');
+  const j = await r.json();
+  TAX.entries = j.entries || [];
+  TAX.summary = j.summary || {};
+  TAX.blind_spots = j.blind_spots || [];
+  TAX.domains = j.domains || {};
+  renderTaxonomy();
+}
+
+function tagClass(prefix, val) {
+  return `tag ${prefix}-${String(val).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
+function renderTaxonomy() {
+  const root = document.getElementById('v-tax');
+  if (!root) return;
+  const s = TAX.summary || {};
+  const macros = s.by_macro || {};
+  const totals = s.total || 0;
+  const gaps = s.gaps || {};
+  const allGaps = [...(gaps.unused_lifecycle||[]).map(v=>`lifecycle: ${v}`),
+                   ...(gaps.unused_cadence||[]).map(v=>`cadence: ${v}`)];
+
+  const opts = (name, values, sel) => {
+    const rows = [`<option value="">— tutti —</option>`,
+                  ...values.map(v => `<option value="${v}"${sel===v?' selected':''}>${v}</option>`)];
+    return `<select data-tax-filter="${name}">${rows.join('')}</select>`;
+  };
+
+  const heroHtml = `
+    <div class="tax-hero">
+      <h2>Tassonomia dei dati grezzi <span class="dim" style="font-weight:400;font-size:14px">
+        · spina dorsale del primo paper</span></h2>
+      <div class="lead">
+        Ogni riga è un <b>dato grezzo elementare</b> catturato dal framework:
+        campo del payload di un evento, non una metrica aggregata. Gli undici
+        attributi (name, type, hook, moment, cardinality, lifecycle,
+        reproducibility, cadence, persistence, pii, unit) rispondono a come
+        lo prendiamo, quando, quanto dura, se si può ricollezionare, se
+        scade nel tempo. Fonte: <code>src/instrumentation/data_taxonomy.py</code>.
+      </div>
+      <div class="tax-stats">
+        <div class="tax-stat"><div class="lbl">Totale dati grezzi</div>
+          <div class="n">${totals}</div><div class="sub">72 × 11 = 792 celle</div></div>
+        <div class="tax-stat common"><div class="lbl">Common (recorder-builtin)</div>
+          <div class="n">${macros.common||0}</div><div class="sub">in ogni evento</div></div>
+        <div class="tax-stat cf"><div class="lbl">Control Flow</div>
+          <div class="n">${macros.control_flow||0}</div><div class="sub">A1..A4</div></div>
+        <div class="tax-stat df"><div class="lbl">Data Flow</div>
+          <div class="n">${macros.data_flow||0}</div><div class="sub">B1..B4</div></div>
+        <div class="tax-stat bh"><div class="lbl">Behavioral</div>
+          <div class="n">${macros.behavioral||0}</div><div class="sub">C2..C4</div></div>
+      </div>
+    </div>`;
+
+  const gapsHtml = allGaps.length ? `
+    <div class="tax-gaps">
+      <div class="glbl">Buchi<br>dichiarati</div>
+      <div class="glist">
+        ${allGaps.map(g=>`<span class="tax-gap-chip">${g}</span>`).join('')}
+      </div>
+    </div>` : '';
+
+  const toolbarHtml = `
+    <div class="tax-toolbar">
+      <div class="tt-group"><label>Macro</label>
+        ${opts('macro', Object.keys(macros), TAX.filters.macro)}</div>
+      <div class="tt-group"><label>Lifecycle</label>
+        ${opts('lifecycle', (TAX.domains.lifecycle||[]), TAX.filters.lifecycle)}</div>
+      <div class="tt-group"><label>Reproducibility</label>
+        ${opts('reproducibility', (TAX.domains.reproducibility||[]), TAX.filters.reproducibility)}</div>
+      <div class="tt-group"><label>Cerca</label>
+        <input type="search" data-tax-filter="q" value="${TAX.filters.q||''}"
+          placeholder="nome campo, evidenza, note…"/></div>
+      <button class="tt-clear" data-tax-clear>Reset</button>
+      <div class="tt-count" id="tax-count"></div>
+    </div>`;
+
+  const bsHtml = TAX.blind_spots.length ? `
+    <div class="tax-blindspots">
+      <h3>Blind spot noti · manifestazione empirica dell'observability boundary</h3>
+      <div class="bs-list">
+        ${TAX.blind_spots.map(bs=>`
+          <div class="tax-bs">
+            <div class="bs-name">${bs.name}</div>
+            <div class="bs-detail">${bs.detail}</div>
+          </div>`).join('')}
+      </div>
+    </div>`: '';
+
+  root.innerHTML = `
+    <div class="tax-wrap">
+      ${heroHtml}
+      ${gapsHtml}
+      ${toolbarHtml}
+      <div id="tax-list"></div>
+      ${bsHtml}
+    </div>`;
+
+  // Bind eventi filtro
+  root.querySelectorAll('[data-tax-filter]').forEach(el => {
+    el.addEventListener('input', () => {
+      TAX.filters[el.dataset.taxFilter] = el.value.trim();
+      renderTaxonomyList();
+    });
+  });
+  root.querySelector('[data-tax-clear]')?.addEventListener('click', () => {
+    TAX.filters = { macro:'', lifecycle:'', reproducibility:'', q:'' };
+    renderTaxonomy();
+  });
+
+  renderTaxonomyList();
+}
+
+function renderTaxonomyList() {
+  const list = document.getElementById('tax-list');
+  if (!list) return;
+  const f = TAX.filters;
+  const q = (f.q||'').toLowerCase();
+  const filtered = TAX.entries.filter(e => {
+    if (f.macro && e.macro !== f.macro) return false;
+    if (f.lifecycle && e.lifecycle !== f.lifecycle) return false;
+    if (f.reproducibility && e.reproducibility !== f.reproducibility) return false;
+    if (q) {
+      const hay = [e.name, e.evidence, e.notes, e.id, e.type,
+                   e.hook, e.persistence].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  document.getElementById('tax-count').textContent =
+    `${filtered.length} / ${TAX.entries.length} dati`;
+
+  // Raggruppa per macro → evidence, preservando l'ordine.
+  const byMacro = {};
+  filtered.forEach(e => {
+    (byMacro[e.macro] ||= {})[e.evidence] ||= [];
+    byMacro[e.macro][e.evidence].push(e);
+  });
+
+  const macroOrder = ['common','control_flow','data_flow','behavioral'];
+  const html = [];
+  for (const m of macroOrder) {
+    const groups = byMacro[m]; if (!groups) continue;
+    const totInMacro = Object.values(groups).reduce((a,b)=>a+b.length, 0);
+    html.push(`<div class="tax-group-head macro-${m}">
+      <span class="dot"></span> ${TAX_MACRO_LABEL[m]||m}
+      <span class="cnt">${totInMacro} dati</span></div>`);
+    for (const [evi, rows] of Object.entries(groups)) {
+      html.push(`<div class="tax-group-head" style="border:none;padding:6px 4px 2px;
+        text-transform:none;letter-spacing:.2px;font-size:12px;color:var(--txt)">
+        ${evi}
+        <span class="cnt">${rows.length}</span></div>`);
+      html.push('<div class="tax-group">');
+      rows.forEach(r => html.push(renderTaxCard(r)));
+      html.push('</div>');
+    }
+  }
+  if (!html.length) html.push('<div class="dim" style="padding:20px;text-align:center">Nessun risultato con i filtri correnti.</div>');
+  list.innerHTML = html.join('');
+}
+
+function renderTaxCard(r) {
+  const badges = [
+    `<span class="${tagClass('life', r.lifecycle)}">${r.lifecycle}</span>`,
+    `<span class="${tagClass('rep', r.reproducibility)}">${r.reproducibility}</span>`,
+    `<span class="${tagClass('cad', r.cadence)}">${r.cadence}</span>`,
+    r.pii && r.pii !== 'none' ? `<span class="${tagClass('pii', r.pii)}">PII: ${r.pii}</span>` : '',
+  ].filter(Boolean).join('');
+  const fields = ['type','hook','moment','cardinality','persistence','unit']
+    .map(k => {
+      const v = r[k];
+      if (v === null || v === undefined || v === '') return '';
+      return `<div class="tax-field"><div class="fk">${ATTR_LABEL[k]}</div>
+        <div class="fv">${escapeHtml(String(v))}</div></div>`;
+    }).filter(Boolean).join('');
+  const notesRow = r.notes
+    ? `<div class="tax-notes">${escapeHtml(r.notes)}</div>` : '';
+  return `<details class="tax-card">
+    <summary>
+      <span class="id">${r.id}</span>
+      <span class="nm">${escapeHtml(r.name)}</span>
+      <span class="ty">${escapeHtml(r.type)}</span>
+      <span class="badges">${badges}</span>
+    </summary>
+    <div class="tax-body">
+      ${fields}
+      ${notesRow}
+    </div>
+  </details>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ========================================================================
 // INIT
 // ========================================================================
 async function init() {
   await loadConfig();
   await loadIncidents();
+  await loadTaxonomy();
 }
 init().catch(e=>{ console.error(e); $('#model-label').textContent='(init errore, vedi console)'; });
 </script>
