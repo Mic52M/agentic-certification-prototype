@@ -185,128 +185,524 @@ qui riportiamo solo la lista come **oggetti** della tassonomia.
 
 ---
 
-## 5 · I sette attributi tassonomici
+## 5 · Gli undici attributi tassonomici (livello: DATO GREZZO)
 
-Ogni evidenza dichiara sette attributi. Sono **ortogonali**: ognuno
-risponde a una domanda distinta del processo di certificazione.
+**Correzione di framing rispetto alla bozza precedente**: la tassonomia
+non è sulle metriche aggregate (A1.1, C4.8, ecc.) ma sui **dati grezzi
+elementari** che alimentano quelle metriche. Le metriche sono il
+risultato del processo di certificazione; la tassonomia caratterizza
+la materia prima da cui le costruiamo.
 
-### 5.1 · Hook (punto di aggancio)
-*Dove* nel sistema viene captata l'evidenza. Dominio:
-`{agent, orchestrator, tool_adapter, event_store}`. Ogni evidenza è
-prodotta da un componente specifico dell'architettura di raccolta.
-Rilevante per il paper: il hook determina l'invasività della
-strumentazione.
+Esempio concreto per chiarire il livello. La metrica A3.4
+(anti-pattern bounces) non è oggetto della tassonomia. Sono oggetti
+della tassonomia i **campi elementari** catturati ad ogni evento
+`orchestrator_decision` per costruirla:
 
-### 5.2 · Measure (cosa misura)
-*Cosa* è la grandezza osservata. Dominio:
-`{count, ratio, probability, categorical_distribution,
-sequence, boolean, duration_ms}`. Determina il tipo di aggregazione
-possibile e la scelta della metrica statistica.
+- `source_component: string`
+- `target_component: string`
+- `timestamp_start: int64 (ms)`
+- `metadata.reason: string`
+- `metadata.alternatives: list[string]`
+- `metadata.step: int`
+- `metadata.context_snapshot_keys: list[string]`
 
-### 5.3 · Moment (momento di raccolta)
-*Quando* rispetto al flusso operativo l'evidenza è emessa. Dominio:
-`{pre-event, during-event, post-event, end-of-run, end-of-batch}`.
-Distingue metriche "istantanee" da metriche "aggregate".
+Ognuno di questi campi è un **dato grezzo** e riceve la propria scheda
+tassonomica con gli undici attributi che seguono. Un'evidenza è
+"caratterizzata" dalla scheda tassonomica di tutti i suoi dati grezzi.
 
-### 5.4 · Cadence (cadenza di collezione)
-La dimensione **centrale** del paper. *Come* nel tempo viene collezionata
-l'evidenza. Dominio:
-- `one-shot`: rilevata una sola volta, non cambia (es. topologia dichiarata).
-- `per-event`: emessa ogni volta che l'evento sorgente occorre.
-- `per-run`: aggregata a fine run.
-- `sliding-window`: media/aggregato su finestra scorrevole di N run recenti (**buco corrente** del prototipo).
-- `cross-run`: aggregata a fine batch, tipicamente con IC.
+Gli attributi sono **ortogonali**: ognuno risponde a una domanda
+distinta del processo di certificazione.
 
-### 5.5 · Lifecycle (ciclo di vita nel tempo)
-La dimensione **più nuova** del paper. *Come si comporta* l'evidenza
-nel tempo dopo la raccolta. Dominio:
-- `stable-in-run`: fissata all'inizio della run, non cambia.
-- `monotone-growing`: cresce nel tempo (es. cumulative token count).
-- `volatile`: cambia a ogni tick senza pattern (es. reasoning trace).
-- `decaying`: perde rilevanza col tempo (es. freshness del contesto —
-  non ancora modellato dal prototipo).
+### 5.1 · Name — nome del campo
+La stringa che identifica il dato nel JSONL e nel codice
+(`source_component`, `metadata.reason`, `payload_redacted.result`,
+ecc.). Rilevante perché l'audit dev'essere ancorato al file reale, non
+a un'astrazione documentale.
 
-### 5.6 · Statistical Regime (regime statistico)
-*Come va interpretata*. Dominio:
-- `deterministic`: predicato binario, verificabile classicamente.
-- `stochastic-single-run`: osservata su una run, con varianza intrinseca.
-- `stochastic-need-CI`: richiede N run e intervallo di confidenza per
-  essere significativa.
+### 5.2 · Type — tipo dato
+Dominio: `{string, int, float, timestamp_ms, boolean, list[T],
+dict, categorical<enum>, text_free}`. `categorical<enum>` è il caso
+in cui il dominio è chiuso (es. `outcome ∈ {completed, error, unknown}`);
+`text_free` distingue il testo prosaico (thought, final_output) dal
+resto perché ha implicazioni PII e di analisi diverse.
 
-### 5.7 · Root (radice bibliografica)
-*Da dove viene*. Dominio delle famiglie note:
-`{process-mining, software-testing, agent-evaluation,
-statistical-model-checking, groundedness-adherence,
-agentleak-datachannels, custom-agentic}`. Rende esplicito il debito
-intellettuale.
+### 5.3 · Hook — sorgente architetturale
+Chi produce il dato e a quale evento è agganciato. Dominio:
+`{orchestrator, agent:<name>, tool_adapter:<name>, event_store,
+recorder-builtin}`. `recorder-builtin` sono i campi che il recorder
+aggiunge automaticamente (event_id, run_id, timestamps): sono presenti
+ma non richiedono cooperazione del codice applicativo.
+
+### 5.4 · Moment — momento di cattura
+Quando nel flusso operativo il dato viene reso disponibile. Dominio:
+- `pre-event`: prima che l'evento sorgente accada (es. `alternatives`
+  è calcolato *prima* della scelta orchestrator).
+- `during-event`: durante (es. args tool call).
+- `post-event`: subito dopo (es. tool result, duration).
+- `end-of-run`: a chiusura run (es. outcome, final state snapshot).
+- `end-of-batch`: solo alla fine di N run (aggregati con IC).
+
+### 5.5 · Cardinality — cardinalità per run
+Quante volte il dato viene emesso in una singola run. Dominio:
+- `1`: esattamente uno (es. `run_end.outcome`).
+- `N=k`: costante conosciuta (es. in questo scenario 8
+  `orchestrator_decision` per run).
+- `variable-bounded`: dipende dallo scenario ma con bound (es. tool
+  call ≤ MAX_ITERATIONS).
+- `variable-unbounded`: teoricamente illimitato (es. reasoning steps
+  in ReAct loops).
+
+### 5.6 · Lifecycle — ciclo di vita del dato
+La dimensione **cutting-edge** della tassonomia. Come si comporta il
+dato nel tempo dopo la cattura. Dominio:
+- `snapshot`: valore istantaneo al momento della cattura, non
+  ricalcolabile identico (es. `timestamp_start`, `payload_size` dopo
+  la scrittura).
+- `stable-in-run`: una volta valorizzato non cambia durante la run
+  (es. `run_id`, `incident_id`).
+- `derived-deterministic`: calcolato da altri dati, ri-derivabile
+  identico dai dati sorgente (es. `duration_ms = timestamp_end −
+  timestamp_start`; `metadata.n_steps = len(plan)`).
+- `volatile`: cambia continuamente durante la vita dell'entità
+  osservata (es. token count crescente lato provider, non emesso oggi
+  ma esempio didattico).
+- `decaying`: mantiene rilevanza per una finestra limitata poi si
+  deteriora (es. freshness del contesto RAG, non ancora modellato).
+
+### 5.7 · Reproducibility — riproducibilità
+Se rilanciamo lo stesso scenario, otteniamo lo stesso valore? Dominio:
+- `re-collectable-identical`: sì, bit-identico (es. `reason` dal
+  ROUTING_RULES, `hub_nodes` dalla topologia).
+- `re-collectable-analogous`: sì ma con varianza attesa (es.
+  `timestamp_start`: analogo istante, valore diverso; `duration_ms`:
+  analogo range).
+- `one-shot`: no, è unica opportunità di prendere *questo* dato
+  specifico. È il caso di tutti i dati che dipendono dal comportamento
+  LLM: `metadata.choice` del classifier, `text` del final_output,
+  `thought` del reasoning_step. Rilanciando ottengo *un altro* valore
+  della stessa distribuzione, ma il valore di *questa* run è perduto
+  se non lo raccolgo ora.
+
+Questa dimensione è **al cuore** della certificazione agentic:
+distingue proprietà verificabili classicamente (re-collectable) da
+proprietà che richiedono cattura on-the-fly (one-shot).
+
+### 5.8 · Cadence — cadenza di raccolta possibile
+Come si potrebbe raccogliere il dato (non come lo facciamo oggi).
+Dominio:
+- `event-triggered`: emesso solo quando l'evento sorgente accade (la
+  quasi-totalità dei nostri dati).
+- `polling-able`: potenzialmente interrogabile a intervalli (es.
+  token remaining dell'API, memory usage del processo Python).
+- `on-demand`: recuperabile in qualunque momento dallo stato
+  osservabile (es. dimensione corrente della shared memory).
+- `sliding-window`: aggregabile su finestra scorrevole di N eventi
+  recenti (nessun dato del prototipo lo usa oggi — è il **buco
+  principale** della raccolta attuale, da menzionare nel paper).
+
+### 5.9 · Persistence — dove il dato è persistito
+Dominio: `{jsonl.event.payload_summary,
+jsonl.event.payload_redacted, jsonl.event.metadata,
+jsonl.event.field, experiment.json, aggregate/metrics.json,
+in-memory-only}`. `in-memory-only` marca i dati transienti che il
+sistema NON persiste (es. token remaining nell'header HTTP, letto e
+usato ma non salvato — buco osservabile).
+
+### 5.10 · PII sensitivity — sensibilità PII
+Dominio: `{none} ∪ V = {email, phone, reporter, ip, userid}`. Se
+diverso da `none`, il dato attiva la policy `REDACTION_POLICY` sul
+canale AgentLeak associato all'evento.
+
+### 5.11 · Unit — unità di misura
+Solo per `type ∈ {int, float, timestamp_ms}`. Dominio libero: `ms`,
+`chars`, `bytes`, `tokens`, `count`, ecc. Rilevante per la
+comparabilità cross-metrica (CV di § C4.8 e C4.9 sono confrontabili
+proprio perché adimensionali dopo la normalizzazione, ma i valori
+grezzi hanno unità diverse).
 
 ---
 
-## 6 · La matrice tassonomica (bozza)
+## 6 · Inventario dei dati grezzi per macro (matrice completa)
 
-Costruiremo nel paper una matrice `evidenza × attributo`. Bozza per
-alcune evidenze illustrative (verrà completata nel prototipo prima di
-essere pubblicata):
+L'inventario è ricavato dal codice sorgente del prototipo
+(`src/instrumentation/recorder.py`, `events.py`, `aggregator.py`,
+`agents.py`) e verificato sul batch `exp_79cb00d472bf` (20 run
+INC-2026-015, temp=0, gpt-oss-120b).
 
-| Evidenza | Hook | Measure | Moment | Cadence | Lifecycle | Regime | Root |
-|---|---|---|---|---|---|---|---|
-| A1.1 rule coverage | orchestrator | ratio | end-of-batch | per-run→cross-run | stable-post-run | deterministic | software-testing |
-| A3.1 topology conformance | orchestrator | ratio | end-of-batch | per-run→cross-run | stable-post-run | deterministic | process-mining |
-| A4.2 completion rate | orchestrator | probability | end-of-batch | cross-run | stable-post-batch | stochastic-need-CI | statistical-model-checking |
-| B2 CLR per canale | tool_adapter | ratio | during-event→end-of-batch | per-event→cross-run | monotone-growing→stable | deterministic | agentleak-datachannels |
-| C2 coverage state↔output | agent | probability | end-of-run | per-run→cross-run | stable-post-run | stochastic-need-CI | groundedness-adherence |
-| C3 pairwise consistency | agent | ratio | end-of-run | per-run→cross-run | stable-post-run | stochastic-need-CI | custom-agentic |
-| C4 trajectory signature entropy | event_store | probability | end-of-batch | cross-run | stable-post-batch | stochastic-need-CI | process-mining |
+Ogni tabella lista i **dati grezzi elementari** che alimentano le
+evidenze di una macro. Le sigle di attributi seguono § 5.
 
-Nella matrice completa: 22+10+4 = **36 righe**, 7 colonne = 252 celle
-da riempire con onestà.
+**Campi comuni a TUTTI gli eventi** (`recorder-builtin`, cardinalità
+scala col numero di eventi):
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| E0.1 | event_id | string(uuid16) | recorder-builtin | during-event | =events | stable-in-run | re-collectable-analogous | event-triggered | jsonl.event.field | none | – |
+| E0.2 | run_id | string | recorder-builtin | during-event | =events | stable-in-run | re-collectable-analogous | event-triggered | jsonl.event.field | none | – |
+| E0.3 | experiment_id | string | recorder-builtin | during-event | =events | stable-in-run | re-collectable-analogous | event-triggered | jsonl.event.field | none | – |
+| E0.4 | event_type | categorical<EventKind> | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.5 | channel_id | categorical<C1..C7,null> | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.6 | macro_categories | list[categorical] | recorder-builtin | during-event | =events | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.7 | timestamp_start | int64 | recorder-builtin | during-event | =events | snapshot | re-collectable-analogous | event-triggered | jsonl.event.field | none | ms |
+| E0.8 | timestamp_end | int64 | recorder-builtin | post-event | =events | snapshot | re-collectable-analogous | event-triggered | jsonl.event.field | none | ms |
+| E0.9 | duration_ms | int | recorder-builtin | post-event | =events | derived-deterministic | re-collectable-analogous | event-triggered | jsonl.event.field | none | ms |
+| E0.10 | agent_id | string | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.11 | source_component | string | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.12 | target_component | string\|null | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+| E0.13 | tool_name | string\|null | recorder-builtin | during-event | =events | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.field | none | – |
+
+Queste 13 celle non si ripetono nelle tabelle successive per non
+saturare la matrice; si assume la loro presenza in ogni evento.
 
 ---
 
-## 7 · Ciclo di vita e collezione: il vero cuore del paper
+### 6.1 · Macro CONTROL FLOW — dati grezzi per evidenza
 
-Le sezioni § 5.4 (cadence) e § 5.5 (lifecycle) sono le più nuove: la
-letteratura di agent observability oggi tratta le evidenze come
+#### A1 · Decisioni dell'orchestratore (evento `orchestrator_decision`)
+
+Alimenta A1.1..A1.5 (rule coverage, distribuzione + entropia, routing
+determinism, branching factor, decisioni per run) e in parte A3
+(sequenza edge orchestrator→target).
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A1.d1 | metadata.reason | string | orchestrator | pre-event | =decisions | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A1.d2 | metadata.alternatives | list[string] | orchestrator | pre-event | =decisions | snapshot | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A1.d3 | metadata.step | int | orchestrator | during-event | =decisions | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.metadata | none | count |
+| A1.d4 | metadata.context_snapshot_keys | list[string] | orchestrator | pre-event | =decisions | snapshot | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | – |
+
+**Nota di raccolta**: il campo `alternatives` è calcolato *prima* della
+scelta (le regole vere al momento t), quindi ha `moment=pre-event`.
+`reason` viene dalla `ROUTING_RULES` matched → `derived-deterministic`.
+`step` è contatore ordinato in-run.
+
+#### A2 · Pianificazione (eventi `planning_span` e `replanning`)
+
+Alimenta A2.1..A2.5. Il planning_span è emesso dopo la chiamata LLM
+al planner.
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A2.d1 | metadata.plan | list[text_free] | agent:planner | post-event | 1 per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A2.d2 | metadata.n_steps | int | agent:planner | post-event | 1 per run | derived-deterministic | one-shot | event-triggered | jsonl.event.metadata | none | count |
+| A2.d3 | metadata.updated | boolean | agent:planner | post-event | 1 per run | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A2.d4 | duration_ms | int | agent:planner | post-event | 1 per run | snapshot | re-collectable-analogous | event-triggered | jsonl.event.field | none | ms |
+| A2.d5 | metadata.llm_provider | categorical<groq,cerebras> | agent:planner | post-event | 1 per run | stable-in-run | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | – |
+| A2.d6 | metadata.llm_model | string | agent:planner | post-event | 1 per run | stable-in-run | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | – |
+| A2.d7 | metadata.llm_fingerprint | string(sha256) | agent:planner | post-event | 1 per run | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A2.d8 | metadata.llm_latency_ms | int | agent:planner | post-event | 1 per run | snapshot | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | ms |
+| A2.d9 | metadata.llm_prompt_tokens | int | agent:planner | post-event | 1 per run | snapshot | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | tokens |
+| A2.d10 | metadata.llm_completion_tokens | int | agent:planner | post-event | 1 per run | snapshot | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | tokens |
+| A2.r1 | metadata.old_plan (replanning) | list[text_free] | agent:planner | post-event | 0..k per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A2.r2 | metadata.new_plan (replanning) | list[text_free] | agent:planner | post-event | 0..k per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A2.r3 | metadata.reason (replanning) | text_free | agent:planner | post-event | 0..k per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+
+**Nota critica**: `plan` è `one-shot` perché generato dal LLM ex-novo
+ogni run. `n_steps` è `derived-deterministic` perché deriva da `plan`
+via `len()`. La distinzione one-shot vs derived è centrale: A2.d1
+richiede cattura on-the-fly, A2.d2 può essere ricalcolata ex-post.
+
+#### A3 · Handoff (eventi `handoff` E derivati da `orchestrator_decision`)
+
+Alimenta A3.1..A3.6.
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A3.d1 | metadata.reason | string | orchestrator/agent | during-event | =handoffs | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A3.d2 | metadata.context_summary | text_free | orchestrator/agent | during-event | =handoffs | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A3.d3 | metadata.payload_size | int | orchestrator/agent | during-event | =handoffs | snapshot | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | bytes |
+
+**Blind spot dichiarato**: il runtime attuale NON emette eventi
+`handoff` espliciti (l'orchestratore emette solo
+`orchestrator_decision`). A3 è quindi ricostruito dai target di
+quest'ultimo. In una topologia non hub-and-spoke servirebbe emettere
+`handoff` espliciti — pattern raccomandato per il paper.
+
+#### A4 · Metriche di percorso (aggregazione su tutti gli eventi + `run_end`)
+
+Alimenta A4.1..A4.6. Non ha un evento sorgente proprio: deriva
+dall'insieme degli eventi + `run_end`.
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A4.d1 | metadata.outcome (run_end) | categorical<completed,error,unknown> | recorder | end-of-run | 1 per run | stable-in-run | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A4.d2 | metadata.classification (run_end) | categorical<...> | recorder | end-of-run | 1 per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A4.d3 | metadata.priority (run_end) | categorical<P1..P4> | recorder | end-of-run | 1 per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A4.d4 | metadata.affected_service (run_end) | categorical<...> | recorder | end-of-run | 1 per run | one-shot | one-shot | event-triggered | jsonl.event.metadata | none | – |
+| A4.d5 | metadata.total_tokens (run_end) | int | recorder | end-of-run | 1 per run | derived-deterministic | re-collectable-analogous | event-triggered | jsonl.event.metadata | none | tokens |
+| A4.d6 | metadata.agent_history (run_end) | list[string] | recorder | end-of-run | 1 per run | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| A4.d7 | run_duration | int (derivato) | aggregator | end-of-batch | 1 per run | derived-deterministic | re-collectable-analogous | on-demand | aggregate/metrics.json | none | ms |
+| A4.d8 | tool_call_count | int (derivato) | aggregator | end-of-batch | 1 per run | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | count |
+| A4.d9 | error_count | int (derivato) | aggregator | end-of-batch | 1 per run | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | count |
+
+**Nota epistemologica**: `outcome` è stable-in-run ma one-shot (se
+questa run è "completed", rilanciando potrebbe essere "error"). La
+combinazione stable+one-shot esiste ed è tipica dei dati LLM-driven.
+
+---
+
+### 6.2 · Macro DATA FLOW — dati grezzi per evidenza
+
+Il data flow non ha un evento proprio: **ogni evento con `channel_id`
+valorizzato contribuisce**. La tassonomia è quindi verticalizzata
+sui campi che veicolano potenzialmente PII.
+
+#### B1..B3 · Emissione, CLR, SLR (basati su `payload_summary` e `payload_redacted`)
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| B.d1 | payload_summary | text_free | any event with channel | during-event | =events | one-shot | analogous se LLM, identical altrimenti | event-triggered | jsonl.event.field | scan V | chars |
+| B.d2 | payload_redacted (ricorsivo) | dict\|list\|text_free | any event with channel | during-event | =events | one-shot | analogous se LLM, identical altrimenti | event-triggered | jsonl.event.field | scan V | – |
+| B.d3 | metadata.pii_redaction_hits | dict[category→int] | event_store (adapter) | during-event | events with hits | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | audit-only | count |
+| B.d4 | metadata.namespace (shared_memory) | string | agent | during-event | =memory ops | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| B.d5 | metadata.key (shared_memory) | string | agent | during-event | =memory ops | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| B.d6 | metadata.success (tool_result) | boolean | tool_adapter | post-event | =tool_results | stable-in-run | analogous | event-triggered | jsonl.event.metadata | none | – |
+| B.d7 | metadata.subject (inter_agent_msg) | string | agent | during-event | =messages | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+
+#### B4 · Policy dichiarata (statica, non evento-driven)
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| B4.d1 | VAULT_PATTERNS (V) | dict[string→regex] | source code | end-of-batch | 1 per batch | stable-in-run | re-collectable-identical | on-demand | aggregate/metrics.json | schema | – |
+| B4.d2 | ALLOWED_SET_A[channel] | dict[C1..C7→set[string]] | source code | end-of-batch | 1 per batch | stable-in-run | re-collectable-identical | on-demand | aggregate/metrics.json | schema | – |
+| B4.d3 | REDACTION_POLICY (derivata V-A) | dict[C1..C7→set[string]] | source code | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | schema | – |
+| B4.d4 | mitigation.per_channel.redactions_by_category | dict[category→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | count |
+| B4.d5 | mitigation.events_with_redaction | int | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | count |
+
+**Osservazione tassonomica**: B4 sono dati `stable-in-run` /
+`derived-deterministic` con `hook=source_code` — dichiarati ex-ante,
+la loro re-collection è banale. Sono la parte "specifica di
+certificazione" del data flow.
+
+---
+
+### 6.3 · Macro BEHAVIORAL — dati grezzi per evidenza
+
+#### C1 · Trace end-to-end (aggregato su tutti gli eventi della run)
+
+Non ha dati grezzi propri: usa **l'intera timeline** già catturata
+dagli altri eventi. È l'unica evidenza puramente "aggregativa".
+
+#### C2 · Coerenza state ↔ output (eventi `state_snapshot` e `final_output`)
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| C2.d1 | metadata.state (state_snapshot) | dict | agent:summarizer | end-of-run | 1 per run | stable-in-run | one-shot | event-triggered | jsonl.event.metadata | may contain V | – |
+| C2.d2 | metadata.label (state_snapshot) | string | agent:summarizer | end-of-run | 1 per run | stable-in-run | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| C2.d3 | payload_summary (final_output) | text_free | agent:summarizer | end-of-run | 1 per run | one-shot | one-shot | event-triggered | jsonl.event.field | may contain V | chars |
+
+**Nota**: C2 è calcolata come coverage lessicale dei campi chiave di
+`state.classification/priority/affected_service` (C2.d1) nel testo di
+`final_output` (C2.d3). Sono entrambi one-shot, richiedono cattura
+al momento della run.
+
+#### C3 · Sequenza decisioni (evento `decision_point` + `tool_result`)
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| C3.d1 | metadata.label | categorical<affected_service, log_depth, critical_component, classification, ...> | agent | during-event | ≈5 per run | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.metadata | none | – |
+| C3.d2 | metadata.choice | string | agent | during-event | ≈5 per run | one-shot (se LLM) / deterministic (se rule) | dipende | event-triggered | jsonl.event.metadata | none | – |
+| C3.d3 | payload_redacted.inputs | dict | agent | during-event | ≈5 per run | one-shot | one-shot | event-triggered | jsonl.event.payload_redacted | may contain V | – |
+| C3.d4 | payload_redacted.result[i].id (tool_result postmortems) | string | tool_adapter:query_postmortems | post-event | k pm per run | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.payload_redacted | none | – |
+| C3.d5 | payload_redacted.result[i].tags (tool_result postmortems) | list[string] | tool_adapter:query_postmortems | post-event | k pm per run | derived-deterministic | re-collectable-identical | event-triggered | jsonl.event.payload_redacted | none | – |
+
+**Nota**: C3.d2 ha lifecycle misto: se il decision_point è emesso dal
+planner o classifier (LLM), è `one-shot`; se emesso da
+log_investigator/metrics_analyst (deterministici), è
+`derived-deterministic`. Questa **eterogeneità intra-attributo** è
+un caso da discutere nel paper: la stessa "colonna" della tabella
+può avere celle con lifecycle diverso a seconda del produttore.
+
+#### C4 · Stabilità cross-run (aggregazione end-of-batch)
+
+Tutti i dati di C4 sono `derived-deterministic` dall'aggregato dei
+dati already-collected. Il loro `hook` è `aggregator`, `moment` è
+`end-of-batch`, `cadence` è `on-demand` sul batch chiuso.
+
+| # | Name | Type | Hook | Moment | Cardinality | Lifecycle | Reproducibility | Cadence | Persistence | PII | Unit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| C4.d1 | node_signatures (Counter) | dict[tuple[string]→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d2 | edge_signatures (Counter) | dict[tuple[tuple]→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d3 | tool_signatures (Counter) | dict[tuple[string]→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d4 | final_classification (Counter) | dict[string→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d5 | final_priority (Counter) | dict[string→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d6 | final_affected_service (Counter) | dict[string→int] | aggregator | end-of-batch | 1 per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+| C4.d7 | step_counts (list) | list[int] | aggregator | end-of-batch | N per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | count |
+| C4.d8 | output_lengths (list) | list[int] | aggregator | end-of-batch | N per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | chars |
+| C4.d9 | durations_ms (list) | list[float] | aggregator | end-of-batch | N per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | ms |
+| C4.d10 | postmortem_sets (list) | list[set[string]] | aggregator | end-of-batch | N per batch | derived-deterministic | re-collectable-identical | on-demand | aggregate/metrics.json | none | – |
+
+**Osservazione**: C4 è interamente `re-collectable-identical` da JSONL
+già chiuso. Questo lo rende **ri-eseguibile** su qualunque batch
+storico, proprietà preziosa: se aggiungiamo nuovi assi C4 in futuro,
+possiamo rigenerarli su esperimenti passati senza rilanciare le run.
+
+---
+
+### 6.4 · Sintesi quantitativa della matrice
+
+- **Campi comuni recorder-builtin**: 13
+- **Control Flow**: 4 (A1) + 13 (A2) + 3 (A3) + 9 (A4) = **29**
+- **Data Flow**: 7 (B1-B3) + 5 (B4) = **12**
+- **Behavioral**: 3 (C2) + 5 (C3) + 10 (C4) = **18**
+- **Totale dati grezzi tassonomizzati**: **72 righe × 11 attributi = 792 celle**
+
+Distribuzione per `lifecycle`:
+- `stable-in-run`: dominante nei campi identificativi e nelle policy.
+- `derived-deterministic`: dominante nell'aggregato C4 e in tutte le
+  metriche di batch.
+- `snapshot`: campi temporali (timestamp, duration).
+- `one-shot`: quasi tutti i campi LLM-driven (plan, choice del
+  classifier, final_output text, thought del reasoning).
+- `decaying`: **ZERO occorrenze** — è il buco più significativo del
+  prototipo attuale.
+- `volatile`: **ZERO occorrenze** nei dati persistiti (esiste in
+  memoria: token remaining lato provider, ma non lo salviamo).
+
+Distribuzione per `cadence`:
+- `event-triggered`: ~90% dei dati.
+- `on-demand`: aggregati e policy dichiarate.
+- `polling-able`: **ZERO occorrenze** — anch'esso un buco.
+- `sliding-window`: **ZERO occorrenze** — il buco più discusso del paper.
+
+Distribuzione per `reproducibility`:
+- `re-collectable-identical`: policy, campi derivati deterministicamente,
+  campi da ROUTING_RULES.
+- `re-collectable-analogous`: timestamp, latency, token count.
+- `one-shot`: **tutti i dati che dipendono dall'output LLM**. Il
+  conteggio esatto è **una metrica di primo piano del paper**: ~15
+  campi su 72 sono one-shot. Ogni certificazione agentic deve fare i
+  conti con questa frazione.
+
+---
+
+## 7 · Ciclo di vita del dato: cutting-edge concepts
+
+La letteratura di agent observability tratta oggi le evidenze come
 **punti** (una metrica ha un valore), non come **oggetti temporali**
-(un'evidenza cambia nel tempo, si deteriora, si rigenera).
+che si comportano diversamente nel tempo. La tassonomia proposta
+(§ 5.6 lifecycle, § 5.7 reproducibility, § 5.8 cadence) rende questa
+temporalità esplicita. Da qui derivano tre concetti originali che il
+paper introduce come contributo teorico.
 
-Domande di ricerca che il paper porrà esplicitamente:
-- **Deterioramento**: quando un'evidenza smette di essere
-  rappresentativa? (es. una topology conformance calcolata su un
-  batch di 6 mesi fa vale ancora se il codice degli agenti è
-  cambiato?)
-- **Rigenerazione**: quando va rieseguita la raccolta? (per-commit?
-  per-deploy? on-demand?)
+### 7.1 · Observability boundary
+
+Definiamo l'**observability boundary** come l'insieme delle proprietà
+del sistema che il framework di raccolta NON riesce a osservare, per
+scelta o per limite architetturale. I blind spot del prototipo (§ 8)
+sono la sua manifestazione empirica.
+
+Formalmente, dato un sistema agentico S e un framework di raccolta F,
+l'observability boundary `∂(S, F)` è il complementare, nell'insieme
+delle proprietà osservabili in linea di principio su S, di quelle
+effettivamente catturate da F. Un paper di certificazione onesto
+deve **dichiararlo esplicitamente**, non nasconderlo.
+
+### 7.2 · Deterioration curve dei dati one-shot
+
+Un dato `one-shot` (§ 5.7) ha valore massimo al momento t₀ di cattura
+e valore residuo decrescente dopo t₀:
+
+- t₀ (istante): valore = "esatto per questa esecuzione"
+- t₀ + Δ (con modello LLM immutato, codice invariato): valore =
+  "rappresentativo della distribuzione di risposte", ma non "quel
+  valore specifico"
+- t₀ + Δ (con drift lato provider — cambio modello, batch composition
+  molto diversa): valore = "irrilevante per certificare lo stato
+  attuale"
+
+Il paper può proporre una **taxonomy of decay** — categorie di
+deterioramento — e distinguerla dai dati `re-collectable-identical`
+che non decadono per definizione. Nel nostro prototipo la cache LLM
+rimossa (§ 6.1 RESEARCH_DECISIONS.md) era un tentativo mal posto di
+mitigare il decay che ha finito per sopprimere il segnale scientifico
+sottostante.
+
+### 7.3 · Re-certifiability window
+
+La **re-certifiability window** è l'intervallo temporale entro il
+quale una certificazione basata sui dati raccolti in t₀ resta valida.
+Dipende da:
+
+- la frazione di dati `one-shot` nella tassonomia (più è alta,
+  finestra più stretta);
+- la frazione di dati `decaying` (più è alta, finestra ha un half-life
+  definibile);
+- la stabilità del substrato (modello LLM, codice degli agenti,
+  policy dichiarate).
+
+Nel prototipo attuale, con ~20% di dati one-shot e 0% di dati decaying
+esplicitamente modellati, la re-certifiability window è dominata dalla
+stabilità del provider LLM: se Groq/Cerebras aggiornano il modello,
+la certificazione precedente non è più garantita. Il paper può
+proporre di **tracciare esplicitamente** questa dipendenza (già
+parzialmente fatto via `llm_fingerprint` e `native_model` nei
+metadata degli eventi).
+
+### 7.4 · Domande di ricerca aperte
+
+Nessuna di queste ha risposta pulita in letteratura:
+
 - **Composizione temporale**: come si combinano evidenze raccolte in
-  finestre temporali diverse per produrre un verdetto attuale?
-
-Nessuna di queste domande ha risposta pulita in letteratura; il paper
-può proporre un framework di primo livello.
+  finestre temporali diverse per produrre un verdetto attuale? Se la
+  policy dichiarata (B4) è di 6 mesi fa ma le misure C4 sono di ieri,
+  cosa certifichiamo?
+- **Trigger di ri-raccolta**: quando va rieseguita la raccolta?
+  Per-commit del codice degli agenti? Per-deploy in produzione?
+  Per-cambio-modello del provider? On-demand?
+- **Composizione multi-hook**: dati emessi da hook diversi (agent
+  vs tool_adapter vs event_store) possono avere lifecycle diversi
+  per la *stessa* semantica — come si trattano nell'aggregato?
 
 ---
 
-## 8 · Processo di collezione delle evidenze
+## 8 · Processo di collezione e blind spots (observability boundary)
 
 Il § 8 del paper discuterà **come** ogni evidenza viene raccolta, con
-particolare attenzione ai **blind spots**: cosa il framework NON riesce
-a osservare.
+particolare attenzione ai **blind spot**: la manifestazione empirica
+dell'observability boundary (§ 7.1) sul prototipo attuale.
 
-Bozza dei blind spots noti del prototipo:
+### 8.1 · Blind spot noti (mappati sulla matrice § 6)
+
 - **Prompt fingerprint post-templating**: osserviamo il fingerprint
-  del prompt inviato al provider, non il prompt effettivamente
-  processato dal modello (che può differire per template interni).
+  del prompt inviato al provider (`llm_fingerprint`, § 6.1
+  A2.d7), non il prompt effettivamente processato dal modello dopo il
+  template interno del provider. Lifecycle atteso: `snapshot`,
+  cadence: `event-triggered`; nel prototipo assente.
 - **Batch composition lato provider**: sappiamo che varia (§ 6.1
-  RESEARCH_DECISIONS.md), non possiamo osservarla direttamente.
+  RESEARCH_DECISIONS.md), non possiamo osservarla direttamente. È
+  la causa nota della varianza residua a temp=0. Nessun campo la
+  cattura.
 - **Aggiornamenti silenziosi del modello**: rilevabili solo
-  indirettamente via divergenza dei fingerprint.
+  indirettamente via divergenza dei fingerprint su cache-hit
+  verificati (funzionalità rimossa insieme alla cache; da ripensare).
+- **Token remaining / usage lato provider (volatile)**: leggibile
+  dagli header HTTP di Groq/Cerebras, usato dal client per
+  l'adaptive sleep, ma **non persistito** negli eventi. Lifecycle
+  `volatile`, cadence `polling-able` — perfetto candidato per una
+  sonda nuova.
 - **Quasi-identifier PII**: la detection su V è per-categoria, non
   cattura combinazioni di attributi non-sensibili che identificano
-  un individuo.
+  un individuo (es. nome + servizio + orario). Buco di sicurezza
+  dichiarato.
 - **Emergenza cross-run**: comportamenti emergenti visibili solo a N
   grande non catturati con N piccolo (limite del regime statistico).
+  Non è un blind spot del *cosa* raccogliamo ma del *quanto*.
+- **Decaying data (freshness contesto RAG)**: nessun dato del
+  prototipo ha lifecycle `decaying` esplicito. In un sistema
+  RAG-based sarebbe centrale (freshness dei documenti indicizzati).
+- **Sliding-window aggregates**: nessuna metrica del prototipo ha
+  cadence `sliding-window`. È il buco più discusso in § 7.
 
-Discutere i blind spots è **contributo scientifico onesto** e apre
-alla roadmap del paper 2 (composizione).
+### 8.2 · Blind spot dichiarati come future work
+
+Un paper onesto **elenca esplicitamente** i blind spot come limiti
+dichiarati. Il paper 2 (composizione vs singolo agente) toccherà in
+particolare:
+- comportamenti emergenti a livello di composizione multi-agente non
+  osservabili nei singoli agenti;
+- osservabilità delle policy dinamiche (che cambiano durante
+  l'esecuzione).
 
 ---
 

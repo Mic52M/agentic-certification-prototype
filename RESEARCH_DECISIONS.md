@@ -888,3 +888,50 @@ Divisione di responsabilità fra i due documenti:
 - **Limite dichiarato**: nessun IC su CV (bootstrap richiederebbe
   N≥50); l'entropia normalizzata non è confrontabile fra distribuzioni
   di supporti diversi.
+
+### 11.7 · Correzione framing tassonomia: dati grezzi, non metriche
+
+- **Decisione**: la tassonomia del primo paper opera al livello di
+  **dato grezzo elementare** (campo del payload dell'evento), non al
+  livello di metrica aggregata. In precedenza (§ 11.2) avevo proposto
+  7 attributi da applicare alle metriche (A3.4, C4.8, ecc.);
+  correzione allineata alla richiesta del supervisore: la matrice
+  tassonomica del paper deve caratterizzare i campi elementari
+  (source_component, metadata.reason, metadata.plan, ecc.) che
+  alimentano le metriche.
+- **Motivazione**: le metriche sono il *risultato* del processo di
+  certificazione; la tassonomia caratterizza la *materia prima*. Solo
+  a questo livello di granularità la domanda "come si deteriora nel
+  tempo?" ha una risposta operativa. La stessa domanda posta a una
+  metrica aggregata è ambigua (l'aggregato è ricalcolabile finché i
+  dati grezzi sono conservati).
+- **Alternative scartate**: mantenere la tassonomia al livello
+  metriche (mia proposta originaria), non descriverebbe cosa il
+  framework cattura ma cosa produce. Livello ancora più basso
+  (byte-level nei JSONL): rumore inutile, i field già sono l'atomo
+  giusto.
+- **Nuovo schema attributi**: 11 (name, type, hook, moment,
+  cardinality, lifecycle, reproducibility, cadence, persistence, pii,
+  unit) — vedi § 5 di [PAPER_TAXONOMY.md](PAPER_TAXONOMY.md).
+- **Inventario completo**: 72 dati grezzi tassonomizzati (13 comuni
+  recorder-builtin + 29 CF + 12 DF + 18 BH), 792 celle nella matrice.
+  Dettaglio in § 6 di PAPER_TAXONOMY.md.
+- **Concetti cutting-edge introdotti**: observability boundary,
+  deterioration curve dei dati one-shot, re-certifiability window
+  (§ 7 di PAPER_TAXONOMY.md). Nessuno di questi è in letteratura
+  agent observability: sono contributo teorico originale del paper.
+
+### 11.8 · Buchi strutturali evidenziati dalla tassonomia completa
+
+- **Decisione**: dichiarare esplicitamente nel paper i tre buchi
+  strutturali che l'inventario ha reso visibili:
+  - **`sliding-window` cadence**: 0 dati del prototipo la usano.
+  - **`polling-able` cadence**: 0 dati la usano (esempio: token
+    remaining dagli header HTTP è disponibile ma non persistito).
+  - **`decaying` lifecycle**: 0 dati la modellano (rilevante per
+    freshness in RAG-based systems).
+- **Motivazione**: un paper onesto sulla tassonomia deve mostrare
+  **cosa manca** con la stessa chiarezza con cui mostra cosa c'è.
+  Questi tre buchi diventano future work concreti, non hand-wavy.
+- **Evidenza empirica**: vedi § 6.4 (sintesi quantitativa) e § 8.1
+  (blind spot) di PAPER_TAXONOMY.md.
