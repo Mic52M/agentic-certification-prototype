@@ -605,13 +605,49 @@
   .tax-notes{grid-column:1/-1;background:var(--panel);border-left:2px solid var(--dim2);
       color:var(--dim);padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;font-style:italic}
 
-  .tax-blindspots{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-  .tax-blindspots h3{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
-  .tax-blindspots .bs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+  .tax-blindspots{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+  .tax-blindspots h3{margin:0 0 4px;font-size:14px;letter-spacing:.2px;color:var(--txt)}
+  .tax-blindspots .bs-sub{color:var(--dim);font-size:12px;margin-bottom:12px;line-height:1.5;max-width:900px}
+  .tax-blindspots .bs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}
   .tax-bs{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--orange);
-      border-radius:6px;padding:9px 12px}
-  .tax-bs .bs-name{font-size:12.5px;font-weight:600;color:var(--txt);margin-bottom:2px}
-  .tax-bs .bs-detail{font-size:11.5px;color:var(--dim);line-height:1.5}
+      border-radius:6px;padding:10px 13px;display:flex;flex-direction:column;gap:4px}
+  .tax-bs .bs-name{font-size:13px;font-weight:600;color:var(--txt)}
+  .tax-bs .bs-detail{font-size:12px;color:var(--dim);line-height:1.55}
+  .tax-bs .bs-cat{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--orange);
+      font-weight:600}
+
+  /* Card educative sui domini degli attributi (lifecycle / reproducibility / cadence) */
+  .tax-edu{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+  .tax-edu-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .tax-edu-head h3{margin:0;font-size:15px;letter-spacing:.2px}
+  .tax-edu-head .h-attr{font-size:10px;text-transform:uppercase;letter-spacing:.7px;
+      color:var(--dim);font-family:'SF Mono',monospace;background:var(--bg2);
+      padding:2px 8px;border-radius:4px}
+  .tax-edu .intro{color:var(--dim);font-size:13px;line-height:1.55;max-width:920px;margin:0 0 12px}
+  .tax-edu .cite{color:var(--dim2);font-size:11.5px;line-height:1.5;max-width:920px;
+      border-left:2px solid var(--border2);padding:2px 12px;margin:8px 0 14px;font-style:italic}
+  .tax-edu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+  .tax-edu-item{background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+      padding:10px 12px;display:flex;flex-direction:column;gap:5px}
+  .tax-edu-item .lbl{display:flex;align-items:center;gap:8px;font-family:'SF Mono',monospace;
+      font-size:12px;font-weight:600}
+  .tax-edu-item .lbl .dot{width:8px;height:8px;border-radius:50%}
+  .tax-edu-item .gloss{font-size:12.5px;color:var(--txt);line-height:1.5}
+  .tax-edu-item .ex{font-size:11.5px;color:var(--dim);line-height:1.5;
+      border-top:1px dashed var(--border);padding-top:6px}
+  .tax-edu-item .ex strong{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;
+      font-size:10px;font-weight:600;font-style:normal;margin-right:4px}
+
+  /* Testo discorsivo sotto ogni card dato grezzo */
+  .tax-story{grid-column:1/-1;color:var(--txt);font-size:12.5px;line-height:1.7;
+      background:linear-gradient(180deg,#0f151d,var(--bg2));border:1px solid var(--border);
+      border-left:3px solid var(--green);border-radius:6px;padding:10px 14px;margin-top:6px}
+  .tax-story b{color:#87c5ff;font-weight:600}
+  .tax-story code{background:#0a0e13;padding:1px 6px;border-radius:3px;
+      color:var(--cyan);border:1px solid var(--border)}
+
+  /* Tag base — con tooltip hover */
+  .tag[title]{cursor:help}
 </style>
 </head>
 <body>
@@ -2246,11 +2282,133 @@ const TAX_MACRO_LABEL = {
   data_flow: 'Data Flow',
   behavioral: 'Behavioral',
 };
+// Etichette italiane visibili in UI + tooltip di spiegazione breve.
 const ATTR_LABEL = {
-  name: 'Name', type: 'Type', hook: 'Hook', moment: 'Moment',
-  cardinality: 'Cardinality', lifecycle: 'Lifecycle',
-  reproducibility: 'Reproducibility', cadence: 'Cadence',
-  persistence: 'Persistence', pii: 'PII', unit: 'Unit',
+  name: 'Nome campo',    type: 'Tipo',              hook: 'Origine',
+  moment: 'Momento',     cardinality: 'Cardinalità', lifecycle: 'Ciclo di vita',
+  reproducibility: 'Riproducibilità', cadence: 'Cadenza',
+  persistence: 'Persistenza',       pii: 'Sensibilità PII', unit: 'Unità',
+};
+const ATTR_TOOLTIP = {
+  name: 'Come compare il dato nel JSONL e nel codice.',
+  type: 'Tipo del valore (string, int, list, categorical, ...).',
+  hook: 'Componente architetturale che produce il dato.',
+  moment: 'Quando il dato è reso disponibile nel flusso (pre/during/post/end-of-run/batch).',
+  cardinality: 'Quante istanze del dato in una singola run.',
+  lifecycle: 'Come si comporta il dato nel tempo dopo la cattura.',
+  reproducibility: 'Se rilanciando la run si ottiene lo stesso valore.',
+  cadence: 'Come si potrebbe raccogliere il dato nel tempo.',
+  persistence: 'Dove il dato finisce salvato (o se resta in memoria).',
+  pii: 'Se il dato appartiene a categorie del vault privacy V.',
+  unit: 'Unità di misura per grandezze numeriche.',
+};
+
+// Dizionario educativo: per ogni categoria di attributi, la spiegazione
+// completa dei domini + una citazione accademica quando esiste uno standard.
+const TAX_EDUCATION = {
+  lifecycle: {
+    title: 'Ciclo di vita del dato',
+    intro: 'Come si comporta un dato grezzo nel tempo dopo la cattura. '
+         + 'La distinzione è centrale nella certificazione agentic: dati '
+         + 'ricalcolabili possono essere ri-derivati ex-post, dati one-shot '
+         + 'sono unici e vanno raccolti al momento.',
+    citation: 'Ispirato a temporal databases (Snodgrass, "Developing Time-'
+            + 'Oriented Database Applications in SQL", 1999) e W3C PROV Data '
+            + 'Model (2013) per la nozione di provenance. Il termine '
+            + '"derived-deterministic" segue la definizione classica di '
+            + 'materialized view (Gupta & Mumick 1995).',
+    items: [
+      { key: 'snapshot',
+        gloss: 'Valore istantaneo al momento della cattura, non ricalcolabile identico.',
+        example: 'timestamp_start: il ms preciso in cui l\'evento è emesso. '
+               + 'Rieseguendo la run avrò un altro timestamp analogo.' },
+      { key: 'stable-in-run',
+        gloss: 'Una volta valorizzato, non cambia più durante la run.',
+        example: 'run_id, incident_id, event_type: fissati alla creazione '
+               + 'dell\'evento, immutabili dopo.' },
+      { key: 'derived-deterministic',
+        gloss: 'Calcolato da altri dati; ri-derivabile identico dai sorgenti.',
+        example: 'duration_ms = timestamp_end − timestamp_start; '
+               + 'metadata.n_steps = len(plan). Sono materialized views '
+               + 'di altri campi.' },
+      { key: 'one-shot',
+        gloss: 'Unica opportunità di prendere QUESTO valore: dipende dal '
+             + 'comportamento LLM di questa esecuzione specifica.',
+        example: 'metadata.choice del classifier: rilanciando la stessa '
+               + 'run l\'LLM può scegliere una classe diversa. Il valore '
+               + 'di questa run è perduto se non lo raccolgo ora.' },
+      { key: 'volatile',
+        gloss: 'Cambia continuamente durante la vita dell\'entità osservata.',
+        example: 'Token remaining lato provider LLM (letto dagli header HTTP '
+               + 'ma non persistito): decresce ad ogni chiamata.' },
+      { key: 'decaying',
+        gloss: 'Mantiene rilevanza per una finestra limitata poi si deteriora.',
+        example: 'Freshness di documenti indicizzati in sistemi RAG: dopo N '
+               + 'giorni la reference potrebbe non riflettere più lo stato.' },
+    ],
+  },
+  reproducibility: {
+    title: 'Riproducibilità',
+    intro: 'Se rilanciamo la stessa scenario, otteniamo lo stesso valore? '
+         + 'È la dimensione che distingue proprietà verificabili '
+         + 'classicamente da proprietà che richiedono cattura on-the-fly.',
+    citation: 'Allineato ai badge di ACM Artifact Review and Badging v1.1 '
+            + '(2020): "Repeatable" (same team, same setup → identical '
+            + 'result), "Reproducible" (different team, same setup → same '
+            + 'result), "Replicable" (different team, different setup → '
+            + 'same result). Il nostro one-shot marca dati NON riproducibili '
+            + 'in senso ACM: sono realizzazioni singole di una distribuzione '
+            + 'stocastica.',
+    items: [
+      { key: 're-collectable-identical',
+        gloss: 'Rilanciando ottengo il valore bit-identico. Deterministica.',
+        example: 'metadata.reason della decisione orchestrator viene dalla '
+               + 'ROUTING_RULES: dato lo stesso stato, sempre uguale.' },
+      { key: 're-collectable-analogous',
+        gloss: 'Rilanciando ottengo un valore analogo con varianza attesa.',
+        example: 'timestamp_start: analogo istante ma valore ms diverso. '
+               + 'llm_latency_ms: valore diverso ma stesso ordine di grandezza.' },
+      { key: 'one-shot',
+        gloss: 'NON riproducibile: valore unico di questa run, dovuto alla '
+             + 'stocasticità LLM.',
+        example: 'text del final_output: rilanciando ottengo un\'altra '
+               + 'formulazione dell\'output, di simile qualità ma non uguale.' },
+    ],
+  },
+  cadence: {
+    title: 'Cadenza di raccolta',
+    intro: 'Come si potrebbe raccogliere il dato nel tempo. Distingue dati '
+         + 'legati a un evento istantaneo da dati che avrebbero senso come '
+         + 'serie temporale.',
+    citation: 'Allineato alla distinzione event-triggered / time-triggered '
+            + 'della real-time systems literature (Kopetz, "Real-Time '
+            + 'Systems", 2011). Sliding-window è la nozione standard '
+            + 'della stream processing (Akidau et al., "The Dataflow Model", '
+            + 'VLDB 2015). La cadenza di sampling continuo è vincolata dal '
+            + 'teorema di Nyquist-Shannon (1949).',
+    items: [
+      { key: 'event-triggered',
+        gloss: 'Emesso quando accade un evento sorgente. Discreto, non '
+             + 'programmabile a intervalli.',
+        example: 'Praticamente tutti i dati del prototipo: '
+               + 'orchestrator_decision, tool_call, planning_span, ...' },
+      { key: 'on-demand',
+        gloss: 'Recuperabile in qualunque momento dallo stato osservabile.',
+        example: 'Aggregati C4 su un batch chiuso: rigenerabili '
+               + 'in qualunque momento dai JSONL storici.' },
+      { key: 'polling-able',
+        gloss: 'Potenzialmente interrogabile a intervalli regolari '
+             + '(non solo su evento).',
+        example: 'Token remaining dagli header HTTP di Groq/Cerebras: '
+               + 'oggi consumato dal client ma non persistito. Sarebbe '
+               + 'polling-able ma non lo pollamo.' },
+      { key: 'sliding-window',
+        gloss: 'Aggregato su finestra scorrevole di N eventi recenti '
+             + '(streaming).',
+        example: 'Nessun dato del prototipo lo usa oggi. Sarebbe utile '
+             + 'per detection di drift comportamentale in continuo.' },
+    ],
+  },
 };
 
 async function loadTaxonomy() {
@@ -2266,6 +2424,128 @@ async function loadTaxonomy() {
 
 function tagClass(prefix, val) {
   return `tag ${prefix}-${String(val).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
+// Helper: prende una glossa breve dal TAX_EDUCATION per un dato dominio.
+function taxGloss(category, key) {
+  const items = TAX_EDUCATION[category]?.items || [];
+  const it = items.find(i => i.key === key);
+  return it?.gloss || '';
+}
+
+// Genera in italiano una descrizione discorsiva del dato grezzo a partire
+// dai suoi 11 attributi. Prende gli attributi e li tesse in un paragrafo
+// leggibile: la stessa scheda tassonomica in forma prosaica.
+function buildStory(r) {
+  const parts = [];
+  parts.push(`Il campo <code>${escapeHtml(r.name)}</code>`);
+  // Tipo
+  const typeLabel = {
+    'string':'una stringa','int':'un intero','float':'un numero',
+    'timestamp_ms':'un timestamp in millisecondi','boolean':'un booleano',
+    'list':'una lista','dict':'un oggetto','categorical':'un valore categoriale',
+    'text_free':'testo libero','sha256':'un hash sha256',
+  }[r.type] || `un valore di tipo <code>${escapeHtml(r.type)}</code>`;
+  parts.push(`è ${typeLabel}`);
+  // Hook + moment
+  const hookLbl = {
+    'recorder-builtin':'aggiunto automaticamente dal recorder',
+    'orchestrator':'catturato dall\'orchestratore',
+    'agent':'emesso dall\'agente',
+    'tool_adapter':'restituito dall\'adapter del tool',
+    'aggregator':'derivato dall\'aggregator a fine batch',
+    'event_store':'iniettato dallo strato di persistenza',
+    'source_code':'dichiarato ex-ante nel codice sorgente',
+  }[r.hook] || `catturato via ${escapeHtml(r.hook)}`;
+  const momentLbl = {
+    'pre-event':'PRIMA che l\'evento sorgente occorra',
+    'during-event':'DURANTE l\'evento',
+    'post-event':'SUBITO DOPO l\'evento',
+    'end-of-run':'alla CHIUSURA della run',
+    'end-of-batch':'alla FINE del batch di N run',
+  }[r.moment] || r.moment;
+  parts.push(`${hookLbl} ${momentLbl}`);
+  // Cardinalità
+  const cardLbl = {
+    '1':'esattamente una volta per run',
+    'N=events':'una volta per ogni evento',
+    'N=decisions':'una volta per ogni decisione dell\'orchestratore',
+    'N=handoffs':'una volta per ogni handoff',
+    'variable-bounded':'un numero variabile ma limitato di volte per run',
+    'N per batch':'N volte per batch (una per run)',
+  }[r.cardinality] || `${escapeHtml(r.cardinality)} volte per run`;
+  parts.push(`e viene raccolto ${cardLbl}`);
+  // Chiude prima frase
+  const s1 = parts.join(' ') + '.';
+
+  // Seconda frase: lifecycle + reproducibility
+  const life = r.lifecycle;
+  const lifeLbl = {
+    'snapshot':'è un <b>valore istantaneo</b> non ricalcolabile identico',
+    'stable-in-run':'è <b>stabile per tutta la run</b> una volta fissato',
+    'derived-deterministic':'è <b>derivato deterministicamente</b> da altri dati (ricalcolabile ex-post)',
+    'one-shot':'è un valore <b>one-shot</b>: dipende dal comportamento LLM di questa specifica run',
+    'volatile':'è <b>volatile</b>: cambia continuamente nel tempo',
+    'decaying':'è <b>decadente</b>: perde rilevanza col passare del tempo',
+  }[life] || life;
+  const repLbl = {
+    're-collectable-identical':'rilanciando la run otteniamo il valore <b>bit-identico</b>',
+    're-collectable-analogous':'rilanciando otteniamo un valore <b>analogo</b> con varianza attesa',
+    'one-shot':'rilanciando otteniamo un <b>altro valore</b> della stessa distribuzione: la cattura di ora è insostituibile',
+  }[r.reproducibility] || r.reproducibility;
+  const s2 = `Rispetto al ciclo di vita, ${lifeLbl}; ${repLbl}.`;
+
+  // Terza frase: cadence + persistence + PII + unit
+  const cadLbl = {
+    'event-triggered':'raccolto solo quando l\'evento sorgente accade',
+    'on-demand':'recuperabile in qualunque momento dallo stato osservabile',
+    'polling-able':'sarebbe interrogabile a intervalli regolari',
+    'sliding-window':'aggregabile su finestra scorrevole di eventi recenti',
+  }[r.cadence] || r.cadence;
+  const persLbl = {
+    'jsonl.event.field':'in un campo top-level dell\'evento JSONL',
+    'jsonl.event.metadata':'nel dizionario <code>metadata</code> dell\'evento JSONL',
+    'jsonl.event.payload_redacted':'nel <code>payload_redacted</code> (con eventuale mascheratura PII)',
+    'experiment.json':'nell\'indice <code>experiment.json</code>',
+    'aggregate/metrics.json':'nell\'aggregato <code>aggregate/metrics.json</code>',
+    'in-memory-only':'SOLO in memoria, senza persistenza (blind spot)',
+  }[r.persistence] || escapeHtml(r.persistence);
+  const parts3 = [`È ${cadLbl} e viene salvato ${persLbl}`];
+  if (r.unit) parts3.push(`unità di misura: <code>${escapeHtml(r.unit)}</code>`);
+  if (r.pii && r.pii !== 'none') {
+    const piiLbl = {
+      'may-contain-V':'può contenere categorie del vault privacy V',
+      'audit-only':'audit trail (contatore, non payload)',
+      'schema':'schema di policy, non payload',
+    }[r.pii] || `categoria PII <code>${escapeHtml(r.pii)}</code>`;
+    parts3.push(piiLbl);
+  }
+  const s3 = parts3.join('; ') + '.';
+
+  return `${s1} ${s2} ${s3}`;
+}
+
+function renderEduCard(category) {
+  const edu = TAX_EDUCATION[category];
+  if (!edu) return '';
+  const items = edu.items.map(it => {
+    const cls = tagClass(category === 'lifecycle' ? 'life'
+      : (category === 'reproducibility' ? 'rep' : 'cad'), it.key);
+    return `<div class="tax-edu-item">
+      <div class="lbl"><span class="${cls}" style="font-size:10.5px">${it.key}</span></div>
+      <div class="gloss">${escapeHtml(it.gloss)}</div>
+      <div class="ex"><strong>Esempio</strong>${escapeHtml(it.example)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="tax-edu">
+    <div class="tax-edu-head">
+      <h3>${escapeHtml(edu.title)}</h3>
+      <span class="h-attr">attributo · ${category}</span>
+    </div>
+    <div class="intro">${escapeHtml(edu.intro)}</div>
+    <div class="cite">${escapeHtml(edu.citation)}</div>
+    <div class="tax-edu-grid">${items}</div>
+  </div>`;
 }
 
 function renderTaxonomy() {
@@ -2335,20 +2615,34 @@ function renderTaxonomy() {
 
   const bsHtml = TAX.blind_spots.length ? `
     <div class="tax-blindspots">
-      <h3>Blind spot noti · manifestazione empirica dell'observability boundary</h3>
+      <h3>Blind spot noti</h3>
+      <div class="bs-sub">
+        Manifestazione empirica dell'<i>observability boundary</i>: dati o
+        proprietà che il framework <b>non riesce a osservare</b>, per
+        scelta o per limite architetturale. Dichiarati esplicitamente
+        perché un paper di certificazione onesto deve elencarli, non
+        nasconderli.
+      </div>
       <div class="bs-list">
         ${TAX.blind_spots.map(bs=>`
           <div class="tax-bs">
-            <div class="bs-name">${bs.name}</div>
-            <div class="bs-detail">${bs.detail}</div>
+            <div class="bs-cat">non osservato</div>
+            <div class="bs-name">${escapeHtml(bs.name)}</div>
+            <div class="bs-detail">${escapeHtml(bs.detail)}</div>
           </div>`).join('')}
       </div>
     </div>`: '';
+
+  const eduHtml = `
+    ${renderEduCard('lifecycle')}
+    ${renderEduCard('reproducibility')}
+    ${renderEduCard('cadence')}`;
 
   root.innerHTML = `
     <div class="tax-wrap">
       ${heroHtml}
       ${gapsHtml}
+      ${eduHtml}
       ${toolbarHtml}
       <div id="tax-list"></div>
       ${bsHtml}
@@ -2418,21 +2712,29 @@ function renderTaxonomyList() {
 }
 
 function renderTaxCard(r) {
+  const life = r.lifecycle, rep = r.reproducibility, cad = r.cadence;
   const badges = [
-    `<span class="${tagClass('life', r.lifecycle)}">${r.lifecycle}</span>`,
-    `<span class="${tagClass('rep', r.reproducibility)}">${r.reproducibility}</span>`,
-    `<span class="${tagClass('cad', r.cadence)}">${r.cadence}</span>`,
-    r.pii && r.pii !== 'none' ? `<span class="${tagClass('pii', r.pii)}">PII: ${r.pii}</span>` : '',
+    `<span class="${tagClass('life', life)}" title="${escapeHtml(taxGloss('lifecycle', life))}">${life}</span>`,
+    `<span class="${tagClass('rep', rep)}" title="${escapeHtml(taxGloss('reproducibility', rep))}">${rep}</span>`,
+    `<span class="${tagClass('cad', cad)}" title="${escapeHtml(taxGloss('cadence', cad))}">${cad}</span>`,
+    r.pii && r.pii !== 'none'
+      ? `<span class="${tagClass('pii', r.pii)}" title="Categoria PII del vault privacy">PII · ${r.pii}</span>` : '',
   ].filter(Boolean).join('');
+
   const fields = ['type','hook','moment','cardinality','persistence','unit']
     .map(k => {
       const v = r[k];
       if (v === null || v === undefined || v === '') return '';
-      return `<div class="tax-field"><div class="fk">${ATTR_LABEL[k]}</div>
+      const tip = ATTR_TOOLTIP[k] || '';
+      return `<div class="tax-field">
+        <div class="fk" title="${escapeHtml(tip)}">${ATTR_LABEL[k]}</div>
         <div class="fv">${escapeHtml(String(v))}</div></div>`;
     }).filter(Boolean).join('');
+
+  const story = `<div class="tax-story">${buildStory(r)}</div>`;
   const notesRow = r.notes
     ? `<div class="tax-notes">${escapeHtml(r.notes)}</div>` : '';
+
   return `<details class="tax-card">
     <summary>
       <span class="id">${r.id}</span>
@@ -2443,6 +2745,7 @@ function renderTaxCard(r) {
     <div class="tax-body">
       ${fields}
       ${notesRow}
+      ${story}
     </div>
   </details>`;
 }
