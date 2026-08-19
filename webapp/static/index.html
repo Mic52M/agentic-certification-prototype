@@ -563,16 +563,29 @@
   .tax-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
       overflow:hidden;transition:border-color .15s}
   .tax-card:hover{border-color:var(--border2)}
-  .tax-card summary{padding:10px 14px;cursor:pointer;list-style:none;
-      display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center}
+  .tax-card summary{padding:12px 14px;cursor:pointer;list-style:none;
+      display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
   .tax-card summary::-webkit-details-marker{display:none}
   .tax-card summary::before{content:'▸';color:var(--dim2);transition:transform .15s;font-size:12px}
   .tax-card[open] summary::before{transform:rotate(90deg)}
-  .tax-card .id{font-family:'SF Mono',monospace;font-size:11px;color:var(--dim2);letter-spacing:.4px}
-  .tax-card .nm{font-family:'SF Mono',monospace;font-size:12.5px;color:var(--txt);font-weight:600}
+  .tax-card .id{font-family:'SF Mono',monospace;font-size:11px;color:var(--dim2);letter-spacing:.4px;
+      align-self:start;padding-top:2px}
+  /* Titolo human-readable in primo piano, nome tecnico piccolo sotto */
+  .tax-card .titles{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .tax-card .titles .hl{font-size:14px;color:var(--txt);font-weight:600;line-height:1.35}
+  .tax-card .titles .nm{font-family:'SF Mono',monospace;font-size:11px;color:var(--dim2)}
+  .tax-card .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-self:start}
   .tax-card .ty{font-family:'SF Mono',monospace;font-size:11px;color:var(--cyan);
       background:#0e1f24;padding:2px 8px;border-radius:4px}
-  .tax-card .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+  /* Sezione USAGE: come il dato viene sfruttato per costruire l'evidenza */
+  .tax-usage{grid-column:1/-1;background:#0f181d;border:1px solid #204251;
+      border-left:3px solid var(--blue);border-radius:6px;padding:11px 14px;margin-top:4px}
+  .tax-usage .u-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.7px;
+      color:var(--blue);font-weight:600;margin-bottom:5px}
+  .tax-usage .u-body{color:var(--txt);font-size:12.5px;line-height:1.6}
+  .tax-usage .u-body code{background:#0a0e13;padding:1px 6px;border-radius:3px;
+      color:var(--cyan);border:1px solid var(--border);font-size:11.5px}
 
   .tag{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);
       color:var(--dim);letter-spacing:.3px;font-family:inherit;white-space:nowrap}
@@ -2714,6 +2727,7 @@ function renderTaxonomyList() {
 function renderTaxCard(r) {
   const life = r.lifecycle, rep = r.reproducibility, cad = r.cadence;
   const badges = [
+    `<span class="ty" title="Tipo del valore">${escapeHtml(r.type)}</span>`,
     `<span class="${tagClass('life', life)}" title="${escapeHtml(taxGloss('lifecycle', life))}">${life}</span>`,
     `<span class="${tagClass('rep', rep)}" title="${escapeHtml(taxGloss('reproducibility', rep))}">${rep}</span>`,
     `<span class="${tagClass('cad', cad)}" title="${escapeHtml(taxGloss('cadence', cad))}">${cad}</span>`,
@@ -2721,7 +2735,7 @@ function renderTaxCard(r) {
       ? `<span class="${tagClass('pii', r.pii)}" title="Categoria PII del vault privacy">PII · ${r.pii}</span>` : '',
   ].filter(Boolean).join('');
 
-  const fields = ['type','hook','moment','cardinality','persistence','unit']
+  const fields = ['hook','moment','cardinality','persistence','unit']
     .map(k => {
       const v = r[k];
       if (v === null || v === undefined || v === '') return '';
@@ -2734,17 +2748,28 @@ function renderTaxCard(r) {
   const story = `<div class="tax-story">${buildStory(r)}</div>`;
   const notesRow = r.notes
     ? `<div class="tax-notes">${escapeHtml(r.notes)}</div>` : '';
+  const usageRow = r.usage ? `
+    <div class="tax-usage">
+      <div class="u-lbl">Come viene sfruttato per costruire l'evidenza</div>
+      <div class="u-body">${escapeHtml(r.usage)}</div>
+    </div>` : '';
+
+  const human = r.human_label && r.human_label !== r.name
+    ? escapeHtml(r.human_label) : escapeHtml(r.name);
 
   return `<details class="tax-card">
     <summary>
       <span class="id">${r.id}</span>
-      <span class="nm">${escapeHtml(r.name)}</span>
-      <span class="ty">${escapeHtml(r.type)}</span>
+      <div class="titles">
+        <div class="hl">${human}</div>
+        <div class="nm">${escapeHtml(r.name)}</div>
+      </div>
       <span class="badges">${badges}</span>
     </summary>
     <div class="tax-body">
       ${fields}
       ${notesRow}
+      ${usageRow}
       ${story}
     </div>
   </details>`;

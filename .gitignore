@@ -22,3 +22,5 @@ experiments/exp_*/
 # Local-only handover / strategy docs (not pushed).
 PROJECT_KNOWLEDGE.md
 CERTIFICATION_MAP.md
+RESEARCH_DECISIONS.md
+PAPER_TAXONOMY.md
