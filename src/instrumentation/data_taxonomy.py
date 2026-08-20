@@ -19,7 +19,7 @@ from typing import Any
 # Domini chiusi degli attributi (esposti alla dashboard per filtri).
 # =========================================================================
 DOMAINS: dict[str, list[str]] = {
-    "macro": ["common", "control_flow", "data_flow", "behavioral"],
+    "macro": ["common", "control_flow", "data_flow", "behavioral", "guardrail"],
     "type": [
         "string", "int", "float", "timestamp_ms", "boolean",
         "list", "dict", "categorical", "text_free", "sha256",
@@ -437,6 +437,31 @@ CF: list[dict[str, Any]] = [
                "agente. Utile per A3.3 densità del grafo pesata e per il "
                "monitoraggio del budget di contesto trasferito (rischio di "
                "context bloat in pipeline lunghe)."),
+
+    # ---------- W (Workflow Span, AgentOps 2024) ----------
+    _row(id="W.d1", macro="control_flow", evidence="W · Workflow Span (AgentOps)",
+         name="metadata.workflow_name", human_label="Nome del workflow",
+         type="string", hook="orchestrator",
+         moment="pre-event", cardinality="1",
+         lifecycle="stable-in-run", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         notes="Nel prototipo: 'incident_triage'. Predisposto per topologie "
+               "multi-workflow future.",
+         usage="Etichetta il contenitore di alto livello della run. Consente "
+               "aggregazioni cross-run per workflow (utile quando in futuro "
+               "coesisteranno più workflow: es. triage vs remediation)."),
+    _row(id="W.d2", macro="control_flow", evidence="W · Workflow Span (AgentOps)",
+         name="metadata.phase", human_label="Fase dello Workflow Span",
+         type="categorical", hook="orchestrator",
+         moment="during-event", cardinality="1 (per apertura + 1 per chiusura)",
+         lifecycle="stable-in-run", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         notes="Dominio: start | end. Un evento per fase.",
+         usage="Delimita il contenitore workflow: la coppia (start, end) "
+               "consente di calcolare la durata effettiva del workflow "
+               "(diversa da A4.6 duration che è ts_max - ts_min sugli eventi) "
+               "e di raggruppare tutti gli eventi intermedi come children "
+               "dello span workflow (per esportazioni OpenTelemetry future)."),
 
     # ---------- A4: path metrics (aggregati) + run_end ----------
     _row(id="A4.d1", macro="control_flow", evidence="A4 · Metriche di percorso",
@@ -881,9 +906,173 @@ BH: list[dict[str, Any]] = [
 
 
 # =========================================================================
+# GUARDRAIL · G (allineamento AgentOps 2024, "Guardrail Span")
+# =========================================================================
+# Il framework emette un evento GUARDRAIL companion ogni volta che una
+# contromisura è applicata (oggi: mitigation PII via PIIRedactor; in futuro:
+# blocco di tool call, refuse per policy). Rende cittadino di prima classe
+# della trace un'azione che AgentOps codifica come span dedicato.
+GR: list[dict[str, Any]] = [
+    _row(id="G.d1", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.action", human_label="Tipo di azione di guardrail",
+         type="categorical", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="derived-deterministic", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         notes="Dominio: redact_pii | block_tool_call | refuse | ...",
+         usage="Discriminante primario del tipo di guardrail applicato: "
+               "consente di misurare separatamente la frequenza di PII "
+               "redaction vs blocchi di tool call vs refuse. Nel prototipo "
+               "attuale solo redact_pii è emesso dal PIIRedactor."),
+    _row(id="G.d2", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.channel", human_label="Canale AgentLeak su cui il guardrail ha agito",
+         type="categorical", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="stable-in-run", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         usage="Consente di aggregare i guardrail per canale AgentLeak: "
+               "cross-check con B2 CLR (quali canali hanno avuto più bisogno "
+               "di mitigation). Legame diretto con REDACTION_POLICY per canale."),
+    _row(id="G.d3", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.categories", human_label="Categorie di V mascherate (con conteggio)",
+         type="dict", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="derived-deterministic", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         pii="audit-only", unit="count",
+         usage="Dettaglio operativo: quante volte ogni categoria di V è "
+               "stata mascherata in questo evento. Somma cross-run alimenta "
+               "il blocco mitigation di B4 (redactions_by_category)."),
+    _row(id="G.d4", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.target_field", human_label="Campo dell'evento su cui il guardrail ha agito",
+         type="string", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="stable-in-run", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         usage="Localizza spazialmente l'intervento (es. "
+               "payload_summary+payload_redacted per PIIRedactor). Base per "
+               "audit granulare 'quale parte dell'evento è stata modificata'."),
+    _row(id="G.d5", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.source_event_id", human_label="Evento sorgente su cui il guardrail ha agito",
+         type="string", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="stable-in-run", reproducibility="re-collectable-analogous",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         usage="Puntatore all'event_id dell'evento originale mitigato: "
+               "consente di ricostruire la coppia (evento raw → guardrail "
+               "companion) per l'audit del ciclo detect→mitigate."),
+    _row(id="G.d6", macro="guardrail", evidence="G · Guardrail actions",
+         name="metadata.source_event_type", human_label="Tipo dell'evento sorgente",
+         type="categorical", hook="event_store",
+         moment="during-event", cardinality="variable-bounded",
+         lifecycle="derived-deterministic", reproducibility="re-collectable-identical",
+         cadence="event-triggered", persistence="jsonl.event.metadata",
+         usage="Utile per aggregazioni: 'quanti guardrail su tool_result vs "
+               "shared_memory_write vs final_output', senza dover fare join "
+               "con l'evento sorgente completo."),
+]
+
+
+# =========================================================================
 # Tassonomia completa + summary + blind spot.
 # =========================================================================
-DATA_TAXONOMY: list[dict[str, Any]] = COMMON + CF + DF + BH
+DATA_TAXONOMY_RAW: list[dict[str, Any]] = COMMON + CF + DF + BH + GR
+
+
+# =========================================================================
+# AIUC-1 control families · mapping DICHIARATO (allineamento standard)
+# =========================================================================
+# AIUC-1 Consortium (2026): certificazione agentic in 6 control families.
+# Mappatura nostra (dichiarata, non certificata) per far parlare la nostra
+# tassonomia con lo standard di industria e facilitare crosswalks a NIST
+# AI RMF, MITRE ATLAS, ISO/IEC 42001.
+#
+# Interpretazione onesta: il mapping è ex-ante e ispezionabile; per il paper
+# resta esplicito che è una nostra interpretazione, non una certificazione.
+
+AIUC1_FAMILIES: list[str] = [
+    "data-privacy",   # governance dei dati personali/sensibili
+    "security",       # controlli di sicurezza e boundary
+    "safety",         # prevenzione output problematici / harmful
+    "reliability",    # affidabilità funzionale + performance
+    "accountability", # tracciabilità, identità, provenance
+    "society",        # bias, fairness, impatti sociali
+]
+
+
+def derive_compliance_families(entry: dict[str, Any]) -> list[str]:
+    """Mapping dichiarato dato grezzo → AIUC-1 control families.
+
+    Regole di derivazione (in ordine di controllo):
+    - `data-privacy`: dati con `pii` diverso da 'none' (compresi
+       audit-only e schema), + policy V/A, + guardrail redaction.
+    - `security`: eventi Guardrail (contromisure) + campi di boundary
+       (channel_id, target_field su guardrail).
+    - `safety`: metriche behavioral che rilevano output rispetto a
+       decisioni (macro=behavioral) + tool error rate.
+    - `reliability`: completion rate, durate, step counts, tool call
+       counts, latenze LLM.
+    - `accountability`: identificatori (run_id, event_id, experiment_id),
+       decision_point (choice/label), workflow_span, llm_fingerprint,
+       llm_provider, llm_model, agent_history.
+    - `society`: nessun dato del prototipo mappa esplicitamente qui →
+       BLIND SPOT DICHIARATO (bias/fairness detection non implementato).
+    """
+    fams: set[str] = set()
+    name = entry.get("name", "")
+    macro = entry.get("macro", "")
+    pii = entry.get("pii", "none")
+    hook = entry.get("hook", "")
+    ev = entry.get("evidence", "")
+
+    # data-privacy
+    if pii and pii != "none":
+        fams.add("data-privacy")
+    if ev.startswith("B4 ·"):  # policy V/A/REDACTION
+        fams.add("data-privacy")
+
+    # security
+    if macro == "guardrail":
+        fams.add("security")
+        fams.add("data-privacy")   # anche privacy (mitigation PII)
+    if "channel_id" in name or "target_field" in name:
+        fams.add("security")
+
+    # safety
+    if macro == "behavioral":
+        fams.add("safety")
+    if "error" in name.lower() or "outcome" in name:
+        fams.add("safety")
+
+    # reliability
+    reliab_kw = ("completion", "duration", "latency", "tokens",
+                 "tool_call_count", "error_count", "step",
+                 "llm_latency", "llm_prompt", "llm_completion")
+    if any(k in name.lower() for k in reliab_kw):
+        fams.add("reliability")
+    if ev.startswith("A4 ·") or ev.startswith("A2 ·"):
+        fams.add("reliability")
+
+    # accountability
+    account_kw = ("_id", "fingerprint", "agent_history", "llm_provider",
+                  "llm_model", "choice", "label", "step",
+                  "workflow_name", "phase")
+    if any(k in name.lower() for k in account_kw):
+        fams.add("accountability")
+    if ev.startswith("W ·"):
+        fams.add("accountability")
+    # Decision points sono la pietra angolare dell'accountability
+    if "decision" in ev.lower() or name == "metadata.reason":
+        fams.add("accountability")
+
+    return sorted(fams)
+
+
+# Applica il mapping a tutte le entry (aggiunge campo `compliance_families`)
+DATA_TAXONOMY: list[dict[str, Any]] = [
+    {**entry, "compliance_families": derive_compliance_families(entry)}
+    for entry in DATA_TAXONOMY_RAW
+]
 
 
 def _summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
@@ -893,9 +1082,15 @@ def _summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
     reproducibility = Counter(e["reproducibility"] for e in entries)
     cadence = Counter(e["cadence"] for e in entries)
     hooks = Counter(e["hook"] for e in entries)
+    # AIUC-1 control families (mapping dichiarato).
+    fam = Counter()
+    for e in entries:
+        for f in e.get("compliance_families") or []:
+            fam[f] += 1
     # Buchi: dimensioni del dominio NON osservate.
     unused_lifecycle = [v for v in DOMAINS["lifecycle"] if life.get(v, 0) == 0]
     unused_cadence = [v for v in DOMAINS["cadence"] if cadence.get(v, 0) == 0]
+    unused_families = [f for f in AIUC1_FAMILIES if fam.get(f, 0) == 0]
     return {
         "total": len(entries),
         "by_macro": dict(macros),
@@ -903,9 +1098,11 @@ def _summarize(entries: list[dict[str, Any]]) -> dict[str, Any]:
         "by_reproducibility": dict(reproducibility),
         "by_cadence": dict(cadence),
         "by_hook": dict(hooks),
+        "by_compliance_family": dict(fam),
         "gaps": {
             "unused_lifecycle": unused_lifecycle,
             "unused_cadence": unused_cadence,
+            "unused_compliance_families": unused_families,
         },
     }
 

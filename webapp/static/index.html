@@ -558,6 +558,7 @@
   .tax-group-head.macro-control_flow .dot{background:var(--cf)}
   .tax-group-head.macro-data_flow    .dot{background:var(--df)}
   .tax-group-head.macro-behavioral   .dot{background:var(--bh)}
+  .tax-group-head.macro-guardrail    .dot{background:var(--green)}
   .tax-group-head .cnt{margin-left:auto;color:var(--dim2);font-variant-numeric:tabular-nums}
 
   .tax-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
@@ -661,6 +662,19 @@
 
   /* Tag base — con tooltip hover */
   .tag[title]{cursor:help}
+
+  /* AIUC-1 compliance family badges (allineamento standard di industria) */
+  .tag.fam-data-privacy   {color:#ff9ec5;border-color:#5b2c47;background:#1f0f18}
+  .tag.fam-security       {color:#87c5ff;border-color:#2b4a6b;background:#0f1b28}
+  .tag.fam-safety         {color:#f0a54f;border-color:#5c3b1a;background:#1f1509}
+  .tag.fam-reliability    {color:#8ce4b0;border-color:#2c5b3f;background:#0f2117}
+  .tag.fam-accountability {color:#c48cff;border-color:#4a2c6a;background:#170d24}
+  .tag.fam-society        {color:#f85149;border-color:#5c1e1a;background:#1f0a0a}
+
+  /* Riga extra nella card compact per compliance families */
+  .rd-compliance{display:flex;gap:5px;flex-wrap:wrap;font-size:10px}
+  .rd-compliance .rc-lbl{color:var(--dim);text-transform:uppercase;letter-spacing:.5px;
+      padding-top:2px}
 
   /* Blocco "Dati grezzi catturati" dentro le card evidenza CF/DF/BH */
   .raw-data-block{margin-top:12px;background:var(--bg2);border:1px solid var(--border);
@@ -1659,6 +1673,12 @@ function renderDataFlow(df) {
       ${rawDataBlock('B4')}
       <div class="card2"><div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
       <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div>
+      <div style="margin-top:12px">
+        <div class="dim" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          Guardrail Span (AgentOps 2024) · azioni di contromisura emesse come evento cittadino di prima classe
+        </div>
+        ${rawDataBlock('G')}
+      </div>
     </div></details>`;
 }
 function renderBehavioral(bh) {
@@ -2329,13 +2349,16 @@ function renderArchMap(macroKey) {
 // spina dorsale del primo paper. Design: header con stats, banner buchi,
 // toolbar filtro sticky, card espandibili raggruppate per evidenza.
 const TAX = { entries: [], summary: {}, blind_spots: [], domains: {},
-              filters: { macro:'', lifecycle:'', reproducibility:'', q:'' } };
+              aiuc1_families: [],
+              filters: { macro:'', lifecycle:'', reproducibility:'',
+                         compliance:'', q:'' } };
 
 const TAX_MACRO_LABEL = {
   common: 'Comuni (recorder-builtin)',
   control_flow: 'Control Flow',
   data_flow: 'Data Flow',
   behavioral: 'Behavioral',
+  guardrail: 'Guardrail (AgentOps 2024)',
 };
 // Etichette italiane visibili in UI + tooltip di spiegazione breve.
 const ATTR_LABEL = {
@@ -2474,6 +2497,7 @@ async function loadTaxonomy() {
   TAX.summary = j.summary || {};
   TAX.blind_spots = j.blind_spots || [];
   TAX.domains = j.domains || {};
+  TAX.aiuc1_families = j.aiuc1_families || [];
   renderTaxonomy();
 }
 
@@ -2587,11 +2611,15 @@ function buildStory(r) {
 // nella tassonomia (vedi src/instrumentation/data_taxonomy.py).
 // ------------------------------------------------------------------------
 const RAW_DATA_PREFIXES = {
-  'A1': ['A1 ·'], 'A2': ['A2 ·'], 'A3': ['A3 ·'], 'A4': ['A4 ·'],
+  'A1': ['A1 ·'], 'A2': ['A2 ·'], 'A3': ['A3 ·'],
+  // A4 include anche Workflow Span (contenitore CF di alto livello).
+  'A4': ['A4 ·', 'W ·'],
   // B1..B3 condividono la stessa sorgente (payload_summary/payload_redacted
   // di ogni evento con channel_id).
   'B1': ['B1-B3 ·'], 'B2': ['B1-B3 ·'], 'B3': ['B1-B3 ·'], 'B4': ['B4 ·'],
   'C2': ['C2 ·'], 'C3': ['C3 ·'], 'C4': ['C4 ·'],
+  // Guardrail: mostrato sotto la sezione B4 mitigation.
+  'G': ['G ·'],
 };
 
 function rawDataForEvidence(evidenceId) {
@@ -2610,6 +2638,11 @@ function renderRawDataCompact(r) {
   ].join('');
   const label = r.human_label && r.human_label !== r.name
     ? escapeHtml(r.human_label) : escapeHtml(r.name);
+  const famBadges = (r.compliance_families || []).map(f =>
+    `<span class="${tagClass('fam', f)}" title="AIUC-1 control family (mapping dichiarato)">${f}</span>`
+  ).join('');
+  const complianceRow = famBadges ? `
+    <div class="rd-compliance"><span class="rc-lbl">AIUC-1</span>${famBadges}</div>` : '';
   return `<div class="raw-data-compact">
     <div class="rd-head">
       <span class="rd-id">${r.id}</span>
@@ -2617,6 +2650,7 @@ function renderRawDataCompact(r) {
       <span class="rd-badges">${badges}</span>
       <span class="rd-name">${escapeHtml(r.name)}</span>
     </div>
+    ${complianceRow}
     ${r.usage ? `<div class="rd-usage">${escapeHtml(r.usage)}</div>` : ''}
   </div>`;
 }
@@ -2698,6 +2732,9 @@ function renderTaxonomy() {
           <div class="n">${macros.data_flow||0}</div><div class="sub">B1..B4</div></div>
         <div class="tax-stat bh"><div class="lbl">Behavioral</div>
           <div class="n">${macros.behavioral||0}</div><div class="sub">C2..C4</div></div>
+        <div class="tax-stat"><div class="lbl">Guardrail</div>
+          <div class="n" style="color:var(--green)">${macros.guardrail||0}</div>
+          <div class="sub">AgentOps 2024</div></div>
       </div>
     </div>`;
 
@@ -2717,6 +2754,8 @@ function renderTaxonomy() {
         ${opts('lifecycle', (TAX.domains.lifecycle||[]), TAX.filters.lifecycle)}</div>
       <div class="tt-group"><label>Reproducibility</label>
         ${opts('reproducibility', (TAX.domains.reproducibility||[]), TAX.filters.reproducibility)}</div>
+      <div class="tt-group"><label>AIUC-1 family</label>
+        ${opts('compliance', TAX.aiuc1_families, TAX.filters.compliance)}</div>
       <div class="tt-group"><label>Cerca</label>
         <input type="search" data-tax-filter="q" value="${TAX.filters.q||''}"
           placeholder="nome campo, evidenza, note…"/></div>
@@ -2744,10 +2783,55 @@ function renderTaxonomy() {
       </div>
     </div>`: '';
 
+  // Card educativa AIUC-1: crosswalk della nostra tassonomia allo standard
+  // di industria (mapping DICHIARATO, non certificato).
+  const famStats = TAX.summary?.by_compliance_family || {};
+  const famGaps = TAX.summary?.gaps?.unused_compliance_families || [];
+  const aiucHtml = TAX.aiuc1_families?.length ? `
+    <div class="tax-edu">
+      <div class="tax-edu-head">
+        <h3>AIUC-1 · Crosswalk allo standard di industria</h3>
+        <span class="h-attr">mapping dichiarato · non certificazione</span>
+      </div>
+      <div class="intro">
+        AIUC-1 Consortium (2026) definisce sei <b>control families</b> per la
+        certificazione di agentic AI, con crosswalks a NIST AI RMF, MITRE
+        ATLAS, ISO/IEC 42001. Il nostro mapping è dichiarato ex-ante e
+        ispezionabile in <code>src/instrumentation/data_taxonomy.py</code>
+        (funzione <code>derive_compliance_families</code>). Non è una
+        certificazione AIUC-1: è un ponte tassonomico.
+      </div>
+      <div class="cite">
+        Riferimento: AIUC-1 Consortium (2026). Nel paper il mapping va
+        dichiarato come nostra interpretazione, con limiti (una copertura
+        completa richiede audit da terzi accreditati).
+      </div>
+      <div class="tax-edu-grid">
+        ${TAX.aiuc1_families.map(f => `
+          <div class="tax-edu-item">
+            <div class="lbl"><span class="${tagClass('fam', f)}" style="font-size:10.5px">${f}</span>
+              <span class="dim" style="margin-left:auto;font-size:10px">
+                ${famStats[f] || 0} dati mappati</span></div>
+            <div class="gloss">${escapeHtml({
+              'data-privacy':'Governance dei dati personali/sensibili: vault privacy, allowed set per canale, mitigation PII.',
+              'security':'Controlli di sicurezza e boundary: guardrail actions, channel isolation, tool permission.',
+              'safety':'Prevenzione di output problematici o incoerenti: metriche behavioral, tool error, outcome.',
+              'reliability':'Affidabilità funzionale e performance: completion rate, durate, latenze, tool call.',
+              'accountability':'Tracciabilità, identità, provenance: id, decision points, fingerprint, workflow span.',
+              'society':'Bias, fairness, impatti sociali: NON coperto dal prototipo (blind spot dichiarato).',
+            }[f] || '')}</div>
+            ${famGaps.includes(f) ? `<div class="ex">
+              <strong>Blind spot</strong>nessun dato del prototipo mappa qui. Da dichiarare come future work.</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>` : '';
+
   const eduHtml = `
     ${renderEduCard('lifecycle')}
     ${renderEduCard('reproducibility')}
-    ${renderEduCard('cadence')}`;
+    ${renderEduCard('cadence')}
+    ${aiucHtml}`;
 
   root.innerHTML = `
     <div class="tax-wrap">
@@ -2767,7 +2851,7 @@ function renderTaxonomy() {
     });
   });
   root.querySelector('[data-tax-clear]')?.addEventListener('click', () => {
-    TAX.filters = { macro:'', lifecycle:'', reproducibility:'', q:'' };
+    TAX.filters = { macro:'', lifecycle:'', reproducibility:'', compliance:'', q:'' };
     renderTaxonomy();
   });
 
@@ -2783,6 +2867,7 @@ function renderTaxonomyList() {
     if (f.macro && e.macro !== f.macro) return false;
     if (f.lifecycle && e.lifecycle !== f.lifecycle) return false;
     if (f.reproducibility && e.reproducibility !== f.reproducibility) return false;
+    if (f.compliance && !(e.compliance_families||[]).includes(f.compliance)) return false;
     if (q) {
       const hay = [e.name, e.evidence, e.notes, e.id, e.type,
                    e.hook, e.persistence].filter(Boolean).join(' ').toLowerCase();
@@ -2800,7 +2885,7 @@ function renderTaxonomyList() {
     byMacro[e.macro][e.evidence].push(e);
   });
 
-  const macroOrder = ['common','control_flow','data_flow','behavioral'];
+  const macroOrder = ['common','control_flow','data_flow','behavioral','guardrail'];
   const html = [];
   for (const m of macroOrder) {
     const groups = byMacro[m]; if (!groups) continue;
@@ -2831,6 +2916,8 @@ function renderTaxCard(r) {
     `<span class="${tagClass('cad', cad)}" title="${escapeHtml(taxGloss('cadence', cad))}">${cad}</span>`,
     r.pii && r.pii !== 'none'
       ? `<span class="${tagClass('pii', r.pii)}" title="Categoria PII del vault privacy">PII · ${r.pii}</span>` : '',
+    ...(r.compliance_families || []).map(f =>
+      `<span class="${tagClass('fam', f)}" title="AIUC-1 control family (mapping dichiarato)">AIUC · ${f}</span>`),
   ].filter(Boolean).join('');
 
   const fields = ['hook','moment','cardinality','persistence','unit']

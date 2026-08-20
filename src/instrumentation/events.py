@@ -72,6 +72,21 @@ class EventKind(str, Enum):
     DECISION_POINT = "decision_point"                  # per intention-behavior
     TRAJECTORY_STEP = "trajectory_step"                # timeline unificata
 
+    # --- Guardrail (allineamento AgentOps 2024: Guardrail Span) ---
+    # Azione di controllo di policy applicata dal framework: mitigation PII
+    # via redattore, blocco di tool call, refuse di un'azione fuori policy.
+    # Emesso da chi *applica* la contromisura (adapter, orchestratore), non
+    # da chi la subisce. Distinto da ERROR: qui il sistema sta *funzionando*
+    # per protezione, non fallendo.
+    GUARDRAIL = "guardrail"
+
+    # --- Workflow (allineamento AgentOps 2024: Workflow Span) ---
+    # Contenitore di alto livello di una run: aperto dal runner all'avvio,
+    # chiuso alla fine. Consente di raggruppare tutti gli eventi sotto un
+    # unico span di workflow (utile per esportazioni verso OpenTelemetry
+    # e per l'analisi cross-run).
+    WORKFLOW_SPAN = "workflow_span"
+
     # --- Meta ---
     RUN_METADATA = "run_metadata"
     RUN_END = "run_end"
@@ -103,6 +118,11 @@ KIND_TO_MACROS: dict[EventKind, tuple[MacroCategory, ...]] = {
                                       MacroCategory.BEHAVIORAL),
     EventKind.RUN_END:               (MacroCategory.CONTROL_FLOW, MacroCategory.BEHAVIORAL),
     EventKind.ERROR:                 (MacroCategory.CONTROL_FLOW,),
+    # Guardrail sta prevalentemente su Data Flow (mitigation PII per canale)
+    # ma tocca anche Control Flow (blocco di tool call in futuro).
+    EventKind.GUARDRAIL:             (MacroCategory.DATA_FLOW, MacroCategory.CONTROL_FLOW),
+    # Workflow è primariamente Control Flow (contenitore di orchestrazione).
+    EventKind.WORKFLOW_SPAN:         (MacroCategory.CONTROL_FLOW,),
 }
 
 
@@ -128,6 +148,11 @@ KIND_TO_CHANNEL: dict[EventKind, ChannelId | None] = {
     EventKind.RUN_METADATA:        None,
     EventKind.RUN_END:              None,
     EventKind.ERROR:                None,
+    # Guardrail non ha un canale fisso: dipende dall'azione. Quando è
+    # emesso in risposta a una redazione PII, il chiamante passa
+    # channel_id = canale su cui la mitigation ha agito.
+    EventKind.GUARDRAIL:           None,
+    EventKind.WORKFLOW_SPAN:       None,
 }
 
 

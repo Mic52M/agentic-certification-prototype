@@ -100,6 +100,12 @@ def run_experiment(
             "temperature": config.TEMPERATURE,
             "summary": f"run {i}/{n_runs} · {incident_id} · {macro_focus}",
         })
+        # Workflow Span di apertura (allineamento AgentOps 2024: contenitore
+        # di alto livello che raggruppa tutte le sotto-attività della run).
+        recorder.workflow_span("runner", "start",
+                               workflow_name="incident_triage",
+                               meta={"incident_id": incident_id,
+                                     "run_index": i, "n_runs": n_runs})
         if progress_sink:
             progress_sink({"kind": "run_start",
                            "run_index": i, "run_id": run.run_id,
@@ -127,6 +133,14 @@ def run_experiment(
             recorder.run_end("runner", "error", {"detail": str(exc)})
             session.end_run(run, ok=False, error=str(exc),
                             total_events=event_store.count)
+
+        # Workflow Span di chiusura (companion dell'apertura). Emesso sempre,
+        # anche in caso di eccezione, per garantire la chiusura del contenitore.
+        recorder.workflow_span("runner", "end",
+                               workflow_name="incident_triage",
+                               meta={"incident_id": incident_id,
+                                     "run_index": i, "n_runs": n_runs,
+                                     "ok": run.ok})
 
         store.close_run(run, event_store)
 

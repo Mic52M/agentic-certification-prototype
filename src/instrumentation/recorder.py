@@ -43,6 +43,79 @@ class Recorder:
             metadata={"outcome": outcome, **(meta or {})},
         ))
 
+    def workflow_span(self, source: str, phase: str, *,
+                      workflow_name: str = "incident_triage",
+                      meta: dict | None = None) -> None:
+        """Registra apertura o chiusura di uno Workflow Span.
+
+        Allineamento con AgentOps (Dong, Lu, Zhu 2024): il Workflow Span è
+        uno dei nove span types, contenitore di alto livello che raggruppa
+        tutte le sotto-attività di una run. Nel prototipo apriamo il
+        workflow all'inizio della run e lo chiudiamo alla fine.
+
+        Args:
+          source: chi emette (es. "runner").
+          phase: "start" | "end".
+          workflow_name: nome del workflow (default "incident_triage").
+          meta: metadati addizionali (ticket, macro focus, ecc.).
+        """
+        m = {"workflow_name": workflow_name, "phase": phase, **(meta or {})}
+        self.store.append(build_event(
+            EventKind.WORKFLOW_SPAN,
+            run_id=self.store.run.run_id,
+            experiment_id=self.store.run.experiment_id,
+            source_component=source,
+            payload_summary=f"workflow[{workflow_name}] {phase}",
+            metadata=m,
+        ))
+
+    def guardrail(self, source: str, action: str, *,
+                  channel: str | None = None,
+                  categories: dict[str, int] | None = None,
+                  target_field: str | None = None,
+                  detail: str = "") -> None:
+        """Registra un'azione di guardrail applicata dal framework.
+
+        Allineamento con AgentOps (Dong, Lu, Zhu 2024): il Guardrail Span
+        è uno dei nove span types. Nel nostro prototipo ne rendiamo
+        cittadino di prima classe la mitigation PII del PIIRedactor.
+
+        Args:
+          source: chi applica il guardrail (es. "pii_redactor").
+          action: che azione ha eseguito (es. "redact_pii", "block_tool_call").
+          channel: canale AgentLeak su cui il guardrail ha agito.
+          categories: categorie di V mascherate con conteggio.
+          target_field: campo dell'evento su cui il guardrail ha agito.
+          detail: descrizione libera.
+        """
+        from .events import ChannelId
+        ch = None
+        if channel:
+            try:
+                ch = ChannelId(channel)
+            except ValueError:
+                ch = None
+        n_hits = sum(categories.values()) if categories else 0
+        summary = f"[{action}] " + (
+            f"{n_hits} mascherature su {channel or '?'}" if n_hits
+            else (detail or action)
+        )
+        self.store.append(build_event(
+            EventKind.GUARDRAIL,
+            run_id=self.store.run.run_id,
+            experiment_id=self.store.run.experiment_id,
+            source_component=source,
+            payload_summary=summary,
+            channel_id=ch,
+            metadata={
+                "action": action,
+                "channel": channel,
+                "categories": dict(categories or {}),
+                "target_field": target_field,
+                "detail": detail,
+            },
+        ))
+
     def error(self, source: str, detail: str) -> None:
         self.store.append(build_event(
             EventKind.ERROR,

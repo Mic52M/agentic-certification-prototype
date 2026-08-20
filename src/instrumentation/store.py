@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import config
-from .events import TraceEvent
+from .events import ChannelId, EventKind, TraceEvent, build_event
 from .pii_redactor import PIIRedactor
 from .session import ExperimentMeta, RunMeta
 
@@ -49,7 +49,7 @@ class EventStore:
         self._fh = self.path.open("w", encoding="utf-8")
         self._count = 0
 
-    def _apply_redaction(self, d: dict) -> None:
+    def _apply_redaction(self, d: dict) -> dict[str, int] | None:
         """In-place: maschera il payload dell'evento se ha channel_id e il
         redactor ha categorie da mascherare per quel canale.
 
@@ -57,12 +57,16 @@ class EventStore:
         in `payload_redacted` (i payload reali sono dict/list annidati: es.
         `payload_redacted.result.reporter_email`). Annota in
         `metadata.pii_redaction_hits` il conteggio aggregato per categoria.
+
+        Ritorna il conteggio totale delle mascherature applicate (per il
+        Guardrail Span companion), oppure None se non è stata applicata
+        alcuna redazione.
         """
         if self.redactor is None:
-            return
+            return None
         ch = d.get("channel_id")
         if not self.redactor.is_active_for(ch):
-            return
+            return None
 
         total_hits: dict[str, int] = {}
 
@@ -102,6 +106,51 @@ class EventStore:
             meta = d.get("metadata") or {}
             meta["pii_redaction_hits"] = total_hits
             d["metadata"] = meta
+            return total_hits
+        return None
+
+    def _emit_guardrail_companion(self, source_d: dict,
+                                  categories: dict[str, int]) -> None:
+        """Emette un evento GUARDRAIL companion accanto a un evento sui cui
+        il redattore ha agito.
+
+        Non chiama `append()` per evitare ricorsione: costruisce il TraceEvent
+        e scrive direttamente. Questo evento rende il guardrail cittadino di
+        prima classe della trace (allineamento AgentOps 2024) mentre
+        `metadata.pii_redaction_hits` resta annotato sull'evento originale
+        (compat con l'aggregator preesistente).
+        """
+        ch_val = source_d.get("channel_id")
+        try:
+            ch = ChannelId(ch_val) if ch_val else None
+        except ValueError:
+            ch = None
+        n_hits = sum(categories.values())
+        gd = build_event(
+            EventKind.GUARDRAIL,
+            run_id=self.run.run_id,
+            experiment_id=self.run.experiment_id,
+            source_component="pii_redactor",
+            payload_summary=f"[redact_pii] {n_hits} mascherature "
+                            f"su {ch_val or '?'}",
+            channel_id=ch,
+            metadata={
+                "action": "redact_pii",
+                "channel": ch_val,
+                "categories": dict(categories),
+                "target_field": "payload_summary+payload_redacted",
+                "source_event_id": source_d.get("event_id"),
+                "source_event_type": source_d.get("event_type"),
+            },
+        ).to_dict()
+        self._fh.write(json.dumps(gd, ensure_ascii=False, default=str) + "\n")
+        self._fh.flush()
+        self._count += 1
+        for s in self.subscribers:
+            try:
+                s(gd)
+            except Exception:  # noqa: BLE001
+                pass
 
     def append(self, event: TraceEvent) -> None:
         """Scrive un evento nel JSONL della run e notifica gli iscritti (UI live)."""
@@ -114,7 +163,7 @@ class EventStore:
         # Mitigation: se un redattore è attivo per questo canale, applica
         # la redazione PRIMA di persistere e PRIMA di notificare i sink UI
         # (nessun percorso deve vedere PII fuori policy).
-        self._apply_redaction(d)
+        guardrail_hits = self._apply_redaction(d)
         self._fh.write(json.dumps(d, ensure_ascii=False, default=str) + "\n")
         self._fh.flush()
         self._count += 1
@@ -123,6 +172,10 @@ class EventStore:
                 s(d)
             except Exception:  # noqa: BLE001 - i sink non devono mai rompere la run
                 pass
+        # Se la redazione ha applicato mascherature, emetti l'evento
+        # Guardrail companion (allineamento AgentOps 2024).
+        if guardrail_hits:
+            self._emit_guardrail_companion(d, guardrail_hits)
 
     @property
     def count(self) -> int:

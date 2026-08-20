@@ -65,6 +65,7 @@ def get_taxonomy() -> dict:
     "Tassonomia dati" della dashboard.
     """
     from src.instrumentation.data_taxonomy import (
+        AIUC1_FAMILIES,
         BLIND_SPOTS,
         DATA_TAXONOMY,
         DOMAINS,
@@ -75,6 +76,7 @@ def get_taxonomy() -> dict:
         "summary": TAXONOMY_SUMMARY,
         "blind_spots": BLIND_SPOTS,
         "domains": DOMAINS,
+        "aiuc1_families": AIUC1_FAMILIES,
     }
 
 
