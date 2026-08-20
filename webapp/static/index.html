@@ -661,6 +661,36 @@
 
   /* Tag base — con tooltip hover */
   .tag[title]{cursor:help}
+
+  /* Blocco "Dati grezzi catturati" dentro le card evidenza CF/DF/BH */
+  .raw-data-block{margin-top:12px;background:var(--bg2);border:1px solid var(--border);
+      border-radius:8px;overflow:hidden}
+  .raw-data-block>summary{padding:9px 12px;cursor:pointer;list-style:none;
+      display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt);
+      background:linear-gradient(180deg,#101820,var(--bg2))}
+  .raw-data-block>summary::-webkit-details-marker{display:none}
+  .raw-data-block>summary::before{content:'▸';color:var(--dim2);transition:transform .15s;font-size:11px}
+  .raw-data-block[open]>summary::before{transform:rotate(90deg)}
+  .raw-data-block>summary .cnt{margin-left:auto;color:var(--dim2);
+      background:var(--panel);border:1px solid var(--border);border-radius:10px;
+      padding:1px 8px;font-variant-numeric:tabular-nums;font-size:11px}
+  .raw-data-block>summary .lbl{color:var(--green);font-weight:600;
+      text-transform:uppercase;letter-spacing:.5px;font-size:10.5px}
+  .raw-data-list{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .raw-data-compact{background:var(--panel);border:1px solid var(--border);border-radius:6px;
+      padding:9px 12px;display:flex;flex-direction:column;gap:6px}
+  .raw-data-compact .rd-head{display:grid;grid-template-columns:auto 1fr auto;gap:10px;
+      align-items:baseline}
+  .raw-data-compact .rd-id{font-family:'SF Mono',monospace;font-size:10.5px;color:var(--dim2);
+      letter-spacing:.3px}
+  .raw-data-compact .rd-label{color:var(--txt);font-size:12.5px;font-weight:600;line-height:1.35}
+  .raw-data-compact .rd-name{font-family:'SF Mono',monospace;font-size:10.5px;color:var(--dim);
+      grid-column:2/-1;line-height:1.3}
+  .raw-data-compact .rd-badges{display:flex;gap:5px;flex-wrap:wrap;grid-column:3;grid-row:1;
+      justify-content:flex-end}
+  .raw-data-compact .rd-usage{color:var(--dim);font-size:11.5px;line-height:1.55;
+      border-top:1px dashed var(--border);padding-top:6px}
+  .raw-data-compact .rd-usage b{color:var(--txt);font-weight:600}
 </style>
 </head>
 <body>
@@ -1190,6 +1220,9 @@ function evidenceCard(macro, ev, opts={}) {
       <p><span class="lb">A cosa serve</span>${desc.why}</p>
       <p><span class="lb">Come sfruttarla</span>${desc.how}</p>
     </div>` : '';
+  // Blocco tassonomia dei dati grezzi che alimentano questa evidenza
+  // (visibile in tutte le macro CF/DF/BH via evidenceId).
+  const rawData = opts.evidenceId ? rawDataBlock(opts.evidenceId) : '';
   return `
     <div class="ev ${macro}">
       <div class="title">${ev.name}<span class="count">${total}</span></div>
@@ -1201,6 +1234,7 @@ function evidenceCard(macro, ev, opts={}) {
       ${opts.extraRows || ''}
       ${samples}
       ${opts.detail ? detailBlock(opts.detail) : ''}
+      ${rawData}
     </div>`;
 }
 
@@ -1583,7 +1617,9 @@ function renderDataFlow(df) {
   return `
     <div class="section"><h2><span class="macro-tag df">DF</span> B1 · Canali C1..C7 (AgentLeak)</h2>
       ${dfBlock('B1')}
-      <div class="channels">${channelCards}</div></div>
+      <div class="channels">${channelCards}</div>
+      ${rawDataBlock('B1')}
+    </div>
     <div class="section"><h2><span class="macro-tag df">DF</span> Estratti dei canali</h2>
       <div class="cats">${samplesByCh || '<div class="empty">Nessun payload da mostrare.</div>'}</div></div>
 
@@ -1593,6 +1629,7 @@ function renderDataFlow(df) {
       <span class="subhint">chiuso in demo · aggregazione in stato esplorativo</span></span>
     </summary><div class="toggle-body">
       ${dfBlock('B2')}
+      ${rawDataBlock('B2')}
       <div class="card2"><table>
         <tr><th>canale</th><th>out-of-policy</th><th>N run</th><th>CLR (proxy)</th><th>allowed A</th></tr>
         ${Object.entries(b2.per_channel).map(([cid,v])=>`<tr><td>${esc(v.channel_name)}</td>
@@ -1608,6 +1645,7 @@ function renderDataFlow(df) {
       <span class="subhint">chiuso in demo · aggregazione in stato esplorativo</span></span>
     </summary><div class="toggle-body">
       ${dfBlock('B3')}
+      ${rawDataBlock('B3')}
       <div class="card2"><div class="big" style="font-size:32px">${(b3.slr_proxy*100).toFixed(0)}%</div>
         <div class="meta">S = ${b3.S.join(', ')}  ·  runs con ≥1 canale fuori policy in S: <b>${b3.runs_with_any_leak}/${b3.n_runs}</b></div></div>
     </div></details>
@@ -1618,6 +1656,7 @@ function renderDataFlow(df) {
       <span class="subhint">chiuso in demo · policy dichiarata</span></span>
     </summary><div class="toggle-body">
       ${dfBlock('B4')}
+      ${rawDataBlock('B4')}
       <div class="card2"><div style="margin-bottom:8px"><b>V:</b> ${b4.vault_V.map(x=>`<span class="kbd">${esc(x)}</span>`).join(' ')}</div>
       <table><tr><th>canale</th><th>A[canale]</th></tr>${b4rows}</table></div>
     </div></details>`;
@@ -2194,6 +2233,7 @@ function renderBehavioral(bh) {
         ${c2legend}
         ${c2summary}
         ${soPanels || '<div class="empty">Nessuna coppia state/output disponibile.</div>'}
+        ${rawDataBlock('C2')}
       </div>
     </details>
 
@@ -2205,6 +2245,7 @@ function renderBehavioral(bh) {
         ${c3legend}
         ${c3summary}
         ${decPanels || '<div class="empty">Nessuna decisione registrata.</div>'}
+        ${rawDataBlock('C3')}
       </div>
     </details>
 
@@ -2213,6 +2254,7 @@ function renderBehavioral(bh) {
       ${bhHeader('C4', `esperimento di ${c4.n_runs || nRuns} run`)}
       ${bhSchema('C4', `${c4_sigs} firme distinte`)}
       <div class="bh-body">
+        ${rawDataBlock('C4')}
         <div class="stab-grid">
           <div class="stab-card">
             <h3>Firme di traiettoria</h3>
@@ -2536,6 +2578,62 @@ function buildStory(r) {
   const s3 = parts3.join('; ') + '.';
 
   return `${s1} ${s2} ${s3}`;
+}
+
+// ------------------------------------------------------------------------
+// Blocco "Dati grezzi catturati" — usato nelle card evidenza CF/DF/BH per
+// mostrare quali campi elementari alimentano quella specifica evidenza.
+// Il matching evidenza → dati grezzi segue il prefix del campo `evidence`
+// nella tassonomia (vedi src/instrumentation/data_taxonomy.py).
+// ------------------------------------------------------------------------
+const RAW_DATA_PREFIXES = {
+  'A1': ['A1 ·'], 'A2': ['A2 ·'], 'A3': ['A3 ·'], 'A4': ['A4 ·'],
+  // B1..B3 condividono la stessa sorgente (payload_summary/payload_redacted
+  // di ogni evento con channel_id).
+  'B1': ['B1-B3 ·'], 'B2': ['B1-B3 ·'], 'B3': ['B1-B3 ·'], 'B4': ['B4 ·'],
+  'C2': ['C2 ·'], 'C3': ['C3 ·'], 'C4': ['C4 ·'],
+};
+
+function rawDataForEvidence(evidenceId) {
+  if (!TAX.entries || !TAX.entries.length) return [];
+  const pfx = RAW_DATA_PREFIXES[evidenceId] || [];
+  if (!pfx.length) return [];
+  return TAX.entries.filter(e =>
+    pfx.some(p => (e.evidence || '').startsWith(p)));
+}
+
+function renderRawDataCompact(r) {
+  const life = r.lifecycle, rep = r.reproducibility;
+  const badges = [
+    `<span class="${tagClass('life', life)}" title="${escapeHtml(taxGloss('lifecycle', life))}">${life}</span>`,
+    `<span class="${tagClass('rep', rep)}" title="${escapeHtml(taxGloss('reproducibility', rep))}">${rep}</span>`,
+  ].join('');
+  const label = r.human_label && r.human_label !== r.name
+    ? escapeHtml(r.human_label) : escapeHtml(r.name);
+  return `<div class="raw-data-compact">
+    <div class="rd-head">
+      <span class="rd-id">${r.id}</span>
+      <span class="rd-label">${label}</span>
+      <span class="rd-badges">${badges}</span>
+      <span class="rd-name">${escapeHtml(r.name)}</span>
+    </div>
+    ${r.usage ? `<div class="rd-usage">${escapeHtml(r.usage)}</div>` : ''}
+  </div>`;
+}
+
+function rawDataBlock(evidenceId) {
+  const rows = rawDataForEvidence(evidenceId);
+  if (!rows.length) return '';
+  return `<details class="raw-data-block">
+    <summary>
+      <span class="lbl">Dati grezzi catturati</span>
+      per costruire questa evidenza
+      <span class="cnt">${rows.length}</span>
+    </summary>
+    <div class="raw-data-list">
+      ${rows.map(renderRawDataCompact).join('')}
+    </div>
+  </details>`;
 }
 
 function renderEduCard(category) {
